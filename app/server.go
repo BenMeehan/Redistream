@@ -10,44 +10,33 @@ import (
 )
 
 func readCommand(reader *bufio.Reader) ([]string, error) {
-	// Read the first line, which contains the command array length
+	// Read the command array length
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
-	// Parse the command array length
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
 		return nil, err
 	}
 
-	// Initialize slice to store command elements
-	commands := make([]string, 0)
-
 	// Read each command element
+	var commands []string
 	for i := 0; i < length; i++ {
-		// Read the line containing the length of the command element
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return nil, err
 		}
-		// Parse the length of the command element
 		elementLength, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 		if err != nil {
 			return nil, err
 		}
-
-		// Read the command element
 		element := make([]byte, elementLength)
 		_, err = reader.Read(element)
 		if err != nil {
 			return nil, err
 		}
-
-		// Append the command element to the commands slice
 		commands = append(commands, string(element))
-
-		// Read the trailing '\r\n'
 		_, err = reader.ReadString('\n')
 		if err != nil {
 			return nil, err
@@ -55,6 +44,14 @@ func readCommand(reader *bufio.Reader) ([]string, error) {
 	}
 
 	return commands, nil
+}
+
+func writeResponse(writer *bufio.Writer, response string) error {
+	_, err := writer.WriteString(response)
+	if err != nil {
+		return err
+	}
+	return writer.Flush()
 }
 
 func handleConnection(conn net.Conn) {
@@ -66,7 +63,6 @@ func handleConnection(conn net.Conn) {
 	writer := bufio.NewWriter(conn)
 
 	for {
-		// Read the command from the client
 		commands, err := readCommand(reader)
 		if err != nil {
 			fmt.Println("Error reading command:", err)
@@ -74,17 +70,14 @@ func handleConnection(conn net.Conn) {
 		}
 
 		for _, cmd := range commands {
+			var response string
 			if strings.ToUpper(cmd) == "PING" {
-				// Respond with +PONG
-				response := "+PONG\r\n"
-				writer.WriteString(response)
+				response = "+PONG\r\n"
 			} else {
-				// Respond with an error for unsupported commands
-				response := "-ERR unknown command\r\n"
-				writer.WriteString(response)
+				response = "-ERR unknown command\r\n"
 			}
 
-			err = writer.Flush()
+			err := writeResponse(writer, response)
 			if err != nil {
 				fmt.Println("Error writing response:", err)
 				return
@@ -96,7 +89,7 @@ func handleConnection(conn net.Conn) {
 func main() {
 	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Println("Failed to bind to port 6379:", err)
 		os.Exit(1)
 	}
 	defer l.Close()
@@ -106,10 +99,9 @@ func main() {
 	for {
 		conn, err := l.Accept()
 		if err != nil {
-			fmt.Println("Error accepting connection: ", err.Error())
+			fmt.Println("Error accepting connection:", err)
 			os.Exit(1)
 		}
-
 		go handleConnection(conn)
 	}
 }
