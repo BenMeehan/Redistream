@@ -7,9 +7,14 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
+// In-memory map to store the redis key-value pairs
 var KeyValuePairs = make(map[string]string)
+
+// Map to store expiry time for each key
+var KeyExpiryTime = make(map[string]int64)
 
 // readCommand reads and parses a Redis command from the client connection.
 func readCommand(reader *bufio.Reader) ([]string, error) {
@@ -94,8 +99,28 @@ func handleConnection(conn net.Conn) {
 					value := commands[i+2]
 					KeyValuePairs[key] = value
 					fmt.Printf("SET %s %s\n", key, value)
+
+					if i+3 < len(commands) && strings.ToUpper(commands[i+3]) == "PX" {
+						expiry, err := strconv.Atoi(commands[i+4])
+						if err != nil {
+							response = "-ERR invalid expiry\r\n"
+							break
+						}
+
+						KeyExpiryTime[key] = time.Now().UnixNano() + int64(expiry)*int64(time.Millisecond)
+
+						/* Active Expiry: Working Idea
+						go func(k string, exp int) {
+							time.Sleep(time.Duration(exp) * time.Millisecond)
+							delete(KeyValuePairs, k)
+							fmt.Printf("Key %s expired\n", k)
+						}(key, expiry)
+						*/
+						i += 4
+					} else {
+						i += 2
+					}
 					response = "+OK\r\n"
-					i += 2
 				} else {
 					response = "-ERR wrong number of arguments for 'set' command\r\n"
 				}
@@ -104,13 +129,19 @@ func handleConnection(conn net.Conn) {
 					key := commands[i+1]
 					fmt.Printf("GET %s\n", key)
 					if value, ok := KeyValuePairs[key]; ok {
-						response = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+						if expiry, found := KeyExpiryTime[key]; found && expiry <= time.Now().UnixNano() {
+							// Key has expired, delete it
+							delete(KeyValuePairs, key)
+							delete(KeyExpiryTime, key)
+							response = fmt.Sprintf("$%d\r\n", -1)
+						} else {
+							response = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+						}
 						i++
 					} else {
 						response = fmt.Sprintf("$%d\r\n", -1)
 						i++
 					}
-
 				} else {
 					response = "-ERR wrong number of arguments for 'get' command\r\n"
 				}
