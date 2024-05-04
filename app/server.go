@@ -9,38 +9,52 @@ import (
 	"strings"
 )
 
-func readCommand(reader *bufio.Reader) (string, error) {
+func readCommand(reader *bufio.Reader) ([]string, error) {
 	// Read the first line, which contains the command array length
-	_, err := reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-
-	// Read the second line, which contains the length of the command
 	line, err := reader.ReadString('\n')
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	// Parse the length
+	// Parse the command array length
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 
-	// Read the third line, which contains the command
-	command := make([]byte, length)
-	_, err = reader.Read(command)
-	if err != nil {
-		return "", err
+	// Initialize slice to store command elements
+	commands := make([]string, 0)
+
+	// Read each command element
+	for i := 0; i < length; i++ {
+		// Read the line containing the length of the command element
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
+		// Parse the length of the command element
+		elementLength, err := strconv.Atoi(strings.TrimSpace(line[1:]))
+		if err != nil {
+			return nil, err
+		}
+
+		// Read the command element
+		element := make([]byte, elementLength)
+		_, err = reader.Read(element)
+		if err != nil {
+			return nil, err
+		}
+
+		// Append the command element to the commands slice
+		commands = append(commands, string(element))
+
+		// Read the trailing '\r\n'
+		_, err = reader.ReadString('\n')
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	// Read the trailing '\r\n'
-	_, err = reader.ReadString('\n')
-	if err != nil {
-		return "", err
-	}
-
-	return string(command), nil
+	return commands, nil
 }
 
 func handleConnection(conn net.Conn) {
@@ -53,26 +67,28 @@ func handleConnection(conn net.Conn) {
 
 	for {
 		// Read the command from the client
-		command, err := readCommand(reader)
+		commands, err := readCommand(reader)
 		if err != nil {
 			fmt.Println("Error reading command:", err)
 			return
 		}
 
-		if strings.ToUpper(command) == "PING" {
-			// Respond with +PONG
-			response := "+PONG\r\n"
-			writer.WriteString(response)
-		} else {
-			// Respond with an error for unsupported commands
-			response := "-ERR unknown command\r\n"
-			writer.WriteString(response)
-		}
+		for _, cmd := range commands {
+			if strings.ToUpper(cmd) == "PING" {
+				// Respond with +PONG
+				response := "+PONG\r\n"
+				writer.WriteString(response)
+			} else {
+				// Respond with an error for unsupported commands
+				response := "-ERR unknown command\r\n"
+				writer.WriteString(response)
+			}
 
-		err = writer.Flush()
-		if err != nil {
-			fmt.Println("Error writing response:", err)
-			return
+			err = writer.Flush()
+			if err != nil {
+				fmt.Println("Error writing response:", err)
+				return
+			}
 		}
 	}
 }
