@@ -10,7 +10,7 @@ import (
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	fmt.Println("Client connected from", conn.RemoteAddr())
+	// fmt.Println("Client connected from", conn.RemoteAddr())
 
 	// Create a bufio reader to read input from the connection
 	reader := bufio.NewReader(conn)
