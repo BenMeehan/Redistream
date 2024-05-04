@@ -9,6 +9,8 @@ import (
 	"strings"
 )
 
+var KeyValuePairs = make(map[string]string)
+
 // readCommand reads and parses a Redis command from the client connection.
 func readCommand(reader *bufio.Reader) ([]string, error) {
 	line, err := reader.ReadString('\n')
@@ -61,6 +63,8 @@ func writeResponse(writer *bufio.Writer, response string) error {
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	fmt.Println("Client connected from", conn.RemoteAddr())
+
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
@@ -83,6 +87,32 @@ func handleConnection(conn net.Conn) {
 					i++
 				} else {
 					response = "-ERR wrong number of arguments for 'echo' command\r\n"
+				}
+			case "SET":
+				if i < len(commands)-2 {
+					key := commands[i+1]
+					value := commands[i+2]
+					KeyValuePairs[key] = value
+					fmt.Printf("SET %s %s\n", key, value)
+					response = "+OK\r\n"
+					i += 2
+				} else {
+					response = "-ERR wrong number of arguments for 'set' command\r\n"
+				}
+			case "GET":
+				if i < len(commands)-1 {
+					key := commands[i+1]
+					fmt.Printf("GET %s\n", key)
+					if value, ok := KeyValuePairs[key]; ok {
+						response = fmt.Sprintf("$%d\r\n%s\r\n", len(value), value)
+						i++
+					} else {
+						response = fmt.Sprintf("$%d\r\n", -1)
+						i++
+					}
+
+				} else {
+					response = "-ERR wrong number of arguments for 'get' command\r\n"
 				}
 			default:
 				response = "-ERR unknown command\r\n"
