@@ -5,8 +5,33 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
+
+func readCommand(reader *bufio.Reader) (string, error) {
+	// Read the command length
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
+	if err != nil {
+		return "", err
+	}
+
+	// Read the command
+	command := make([]byte, length)
+	_, err = reader.Read(command)
+	if err != nil {
+		return "", err
+	}
+	// Read the trailing '\r\n'
+	reader.ReadByte()
+	reader.ReadByte()
+
+	return string(command), nil
+}
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -18,28 +43,28 @@ func handleConnection(conn net.Conn) {
 
 	for {
 		// Read the command from the client
-		command, err := reader.ReadString('\n')
+		command, err := readCommand(reader)
 		if err != nil {
 			fmt.Println("Error reading command:", err)
 			return
 		}
 
-		// Trim any leading or trailing whitespace
-		command = strings.TrimSpace(command)
-		fmt.Println(command)
-
 		// Check the command type
-		switch command {
-		case "PING":
+		if strings.ToUpper(command) == "PING" {
 			// Respond with +PONG
 			response := "+PONG\r\n"
 			writer.WriteString(response)
-			writer.Flush()
-		default:
+		} else {
 			// Respond with an error for unsupported commands
 			response := "-ERR unknown command\r\n"
 			writer.WriteString(response)
-			writer.Flush()
+		}
+
+		// Flush the writer to send the response immediately
+		err = writer.Flush()
+		if err != nil {
+			fmt.Println("Error writing response:", err)
+			return
 		}
 	}
 }
