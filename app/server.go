@@ -11,6 +11,7 @@ func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
 
 	for {
 		_, err := reader.ReadString('\n')
@@ -21,7 +22,8 @@ func handleConnection(conn net.Conn) {
 
 		// Respond with +PONG
 		response := "+PONG\r\n"
-		conn.Write([]byte(response))
+		writer.WriteString(response)
+		writer.Flush()
 	}
 }
 
