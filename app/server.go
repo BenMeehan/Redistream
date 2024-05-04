@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -11,7 +12,16 @@ func handleConnection(conn net.Conn) {
 
 	fmt.Println("Client connected from", conn.RemoteAddr())
 
+	reader := bufio.NewReader(conn)
+
 	for {
+		// Read the command from the client
+		_, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading command:", err)
+			return
+		}
+
 		// Respond with +PONG
 		response := "+PONG\r\n"
 		conn.Write([]byte(response))
