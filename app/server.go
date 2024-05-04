@@ -10,33 +10,44 @@ import (
 )
 
 func readCommand(reader *bufio.Reader) ([]string, error) {
-	// Read the command array length
+	// Read the first line, which contains the command array length
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
+	// Parse the command array length
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
 		return nil, err
 	}
 
+	// Initialize slice to store command elements
+	commands := make([]string, 0)
+
 	// Read each command element
-	var commands []string
 	for i := 0; i < length; i++ {
+		// Read the line containing the length of the command element
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return nil, err
 		}
+		// Parse the length of the command element
 		elementLength, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 		if err != nil {
 			return nil, err
 		}
+
+		// Read the command element
 		element := make([]byte, elementLength)
 		_, err = reader.Read(element)
 		if err != nil {
 			return nil, err
 		}
+
+		// Append the command element to the commands slice
 		commands = append(commands, string(element))
+
+		// Read the trailing '\r\n'
 		_, err = reader.ReadString('\n')
 		if err != nil {
 			return nil, err
@@ -74,6 +85,13 @@ func handleConnection(conn net.Conn) {
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = "+PONG\r\n"
+			case "ECHO":
+				// Check if the command has an argument
+				if len(commands) > 1 {
+					response = fmt.Sprintf("$%d\r\n%s\r\n", len(commands[1]), commands[1])
+				} else {
+					response = "-ERR wrong number of arguments for 'echo' command\r\n"
+				}
 			default:
 				response = "-ERR unknown command\r\n"
 			}
@@ -101,8 +119,8 @@ func main() {
 		conn, err := l.Accept()
 		if err != nil {
 			fmt.Println("Error accepting connection:", err)
-			os.Exit(1)
+			continue
 		}
-		go handleConnection(conn)
+		go handleConnection(conn) // Handle each client connection concurrently
 	}
 }
