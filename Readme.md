@@ -14,13 +14,13 @@ This is a simple implementation of a Redis server in Go. It supports basic comma
 1. Clone the repository:
 
    ```bash
-   git clone https://github.com/yourusername/redis-server.git
+   git clone https://github.com/BenMeehan/Redis-clone.git
    ```
 
 2. Navigate to the project directory:
 
    ```bash
-   cd redis-server
+   cd Redis-clone
    ```
 
 3. Build the executable:
@@ -32,7 +32,7 @@ This is a simple implementation of a Redis server in Go. It supports basic comma
 4. Run the server:
 
    ```bash
-   ./redis-server
+   ./server
    ```
 
 5. Connect to the server using a Redis client (e.g., `redis-cli`) and start issuing commands:
