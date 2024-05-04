@@ -71,9 +71,10 @@ func handleConnection(conn net.Conn) {
 
 		for _, cmd := range commands {
 			var response string
-			if strings.ToUpper(cmd) == "PING" {
+			switch strings.ToUpper(cmd) {
+			case "PING":
 				response = "+PONG\r\n"
-			} else {
+			default:
 				response = "-ERR unknown command\r\n"
 			}
 
