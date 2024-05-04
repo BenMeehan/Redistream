@@ -5,25 +5,36 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strings"
 )
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
+	fmt.Println("Client connected from", conn.RemoteAddr())
+
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
 
 	for {
-		_, err := reader.ReadString('\n')
+		command, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error reading command:", err)
 			return
 		}
 
-		// Respond with +PONG
-		response := "+PONG\r\n"
-		writer.WriteString(response)
-		writer.Flush()
+		command = strings.TrimSpace(command)
+
+		switch command {
+		case "ping":
+			response := "+PONG\r\n"
+			writer.WriteString(response)
+			writer.Flush()
+		default:
+			response := "-ERR unknown command\r\n"
+			writer.WriteString(response)
+			writer.Flush()
+		}
 	}
 }
 
@@ -33,7 +44,6 @@ func main() {
 		fmt.Println("Failed to bind to port 6379")
 		os.Exit(1)
 	}
-
 	defer l.Close()
 
 	fmt.Println("Server listening on port 6379")
