@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"net"
 	"os"
@@ -9,8 +10,30 @@ import (
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 
-	response := "+PONG\r\n"
-	conn.Write([]byte(response))
+	fmt.Println("Client connected from", conn.RemoteAddr())
+
+	// Create a bufio reader to read input from the connection
+	reader := bufio.NewReader(conn)
+
+	for {
+		// Read the command from the client
+		command, err := reader.ReadString('\n')
+		if err != nil {
+			fmt.Println("Error reading command:", err)
+			return
+		}
+
+		// Check if the command is PING
+		if command == "PING\r\n" {
+			// Respond with +PONG
+			response := "+PONG\r\n"
+			conn.Write([]byte(response))
+		} else {
+			// Respond with an error for unsupported commands
+			response := "-ERR unknown command\r\n"
+			conn.Write([]byte(response))
+		}
+	}
 }
 
 func main() {
