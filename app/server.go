@@ -10,28 +10,35 @@ import (
 )
 
 func readCommand(reader *bufio.Reader) (string, error) {
-	// Read the command length
-	line, err := reader.ReadString('\n')
+	// Read the first line, which contains the command array length
+	_, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
 	}
 
-	fmt.Println(line)
-
+	// Read the second line, which contains the length of the command
+	line, err := reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
+	// Parse the length
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
 		return "", err
 	}
 
-	// Read the command
+	// Read the third line, which contains the command
 	command := make([]byte, length)
 	_, err = reader.Read(command)
 	if err != nil {
 		return "", err
 	}
+
 	// Read the trailing '\r\n'
-	reader.ReadByte()
-	reader.ReadByte()
+	_, err = reader.ReadString('\n')
+	if err != nil {
+		return "", err
+	}
 
 	return string(command), nil
 }
@@ -52,7 +59,6 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		// Check the command type
 		if strings.ToUpper(command) == "PING" {
 			// Respond with +PONG
 			response := "+PONG\r\n"
@@ -63,7 +69,6 @@ func handleConnection(conn net.Conn) {
 			writer.WriteString(response)
 		}
 
-		// Flush the writer to send the response immediately
 		err = writer.Flush()
 		if err != nil {
 			fmt.Println("Error writing response:", err)
