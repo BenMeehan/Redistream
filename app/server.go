@@ -9,45 +9,36 @@ import (
 	"strings"
 )
 
+// readCommand reads and parses a Redis command from the client connection.
 func readCommand(reader *bufio.Reader) ([]string, error) {
-	// Read the first line, which contains the command array length
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return nil, err
 	}
-	// Parse the command array length
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
 		return nil, err
 	}
 
-	// Initialize slice to store command elements
 	commands := make([]string, 0)
 
-	// Read each command element
 	for i := 0; i < length; i++ {
-		// Read the line containing the length of the command element
 		line, err := reader.ReadString('\n')
 		if err != nil {
 			return nil, err
 		}
-		// Parse the length of the command element
 		elementLength, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 		if err != nil {
 			return nil, err
 		}
 
-		// Read the command element
 		element := make([]byte, elementLength)
 		_, err = reader.Read(element)
 		if err != nil {
 			return nil, err
 		}
-
-		// Append the command element to the commands slice
 		commands = append(commands, string(element))
 
-		// Read the trailing '\r\n'
 		_, err = reader.ReadString('\n')
 		if err != nil {
 			return nil, err
@@ -57,6 +48,7 @@ func readCommand(reader *bufio.Reader) ([]string, error) {
 	return commands, nil
 }
 
+// writeResponse writes a response to the client connection.
 func writeResponse(writer *bufio.Writer, response string) error {
 	_, err := writer.WriteString(response)
 	if err != nil {
@@ -65,10 +57,9 @@ func writeResponse(writer *bufio.Writer, response string) error {
 	return writer.Flush()
 }
 
+// handleConnection handles commands from a client connection.
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-
-	fmt.Println("Client connected from", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
 	writer := bufio.NewWriter(conn)
@@ -87,10 +78,9 @@ func handleConnection(conn net.Conn) {
 			case "PING":
 				response = "+PONG\r\n"
 			case "ECHO":
-				// Check if the command has an argument
 				if i < len(commands)-1 {
 					response = fmt.Sprintf("$%d\r\n%s\r\n", len(commands[i+1]), commands[i+1])
-					i++ // Skip the argument since we've already processed it
+					i++
 				} else {
 					response = "-ERR wrong number of arguments for 'echo' command\r\n"
 				}
