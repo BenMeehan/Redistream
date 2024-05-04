@@ -15,6 +15,9 @@ func readCommand(reader *bufio.Reader) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	fmt.Println(line)
+
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
 		return "", err
