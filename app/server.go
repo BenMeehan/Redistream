@@ -80,15 +80,17 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		for _, cmd := range commands {
+		for i := 0; i < len(commands); i++ {
+			cmd := commands[i]
 			var response string
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = "+PONG\r\n"
 			case "ECHO":
 				// Check if the command has an argument
-				if len(commands) > 1 {
-					response = fmt.Sprintf("$%d\r\n%s\r\n", len(commands[1]), commands[1])
+				if i < len(commands)-1 {
+					response = fmt.Sprintf("$%d\r\n%s\r\n", len(commands[i+1]), commands[i+1])
+					i++ // Skip the argument since we've already processed it
 				} else {
 					response = "-ERR wrong number of arguments for 'echo' command\r\n"
 				}
