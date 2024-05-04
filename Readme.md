@@ -2,7 +2,7 @@
 
 This is a simple implementation of a Redis server in Go. It supports basic commands such as `PING`, `ECHO`, `SET`, and `GET`, along with the ability to set key expiry using the `PX` argument to the `SET` command.
 
-> This project was done as a part of CodeCrafters *Build Your Own Redis* Challenge.
+> This project was done as a part of CodeCrafters *[Build Your Own Redis](https://app.codecrafters.io/courses/redis)* Challenge.
 
 ## Prerequisites
 
