@@ -17,20 +17,26 @@ func handleConnection(conn net.Conn) {
 	writer := bufio.NewWriter(conn)
 
 	for {
+		// Read the command from the client
 		command, err := reader.ReadString('\n')
 		if err != nil {
 			fmt.Println("Error reading command:", err)
 			return
 		}
 
+		// Trim any leading or trailing whitespace
 		command = strings.TrimSpace(command)
+		fmt.Println(command)
 
+		// Check the command type
 		switch command {
-		case "ping":
+		case "PING":
+			// Respond with +PONG
 			response := "+PONG\r\n"
 			writer.WriteString(response)
 			writer.Flush()
 		default:
+			// Respond with an error for unsupported commands
 			response := "-ERR unknown command\r\n"
 			writer.WriteString(response)
 			writer.Flush()
