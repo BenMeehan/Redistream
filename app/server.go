@@ -155,7 +155,7 @@ func handleConnection(conn net.Conn) {
 					if isReplica {
 						response = "$10\r\nrole:slave\r\n"
 					} else {
-						response = "*3\r\n$11\r\nrole:master\r\n$" + fmt.Sprint((len(masterReplID) + 14)) + "\r\nmaster_replid:" + masterReplID + "\r\n$" + fmt.Sprint((len(strconv.Itoa(masterReplOffset)) + 19)) + "\r\nmaster_repl_offset:" + fmt.Sprint(masterReplOffset) + "\r\n"
+						response = fmt.Sprintf("$11\r\nrole:master\nmaster_replid:%s\nmaster_repl_offset:%d", masterReplID, masterReplOffset)
 					}
 					i++
 				} else {
