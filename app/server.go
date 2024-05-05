@@ -54,6 +54,8 @@ func handleConnection(conn net.Conn) {
 				response, i = Info(i, commands)
 			case "REPLCONF":
 				response, i = HandleREPLCONF(i, commands)
+			case "PSYNC":
+				response = Psync()
 			default:
 				response = "-ERR unknown command\r\n"
 			}
@@ -93,7 +95,7 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
-			ConnectToMaster(masterHost, masterPort)
+			ConnectToMasterHandshake(masterHost, masterPort)
 			i += 3
 		default:
 			i++

@@ -136,3 +136,8 @@ func HandleREPLCONF(index int, commands []string) (string, int) {
 	}
 	return response, index
 }
+
+// Psync handles the PSYNC command.
+func Psync() string {
+	return fmt.Sprintf("+FULLRESYNC %s %d\r\n", masterReplID, masterReplOffset)
+}

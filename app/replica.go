@@ -7,7 +7,7 @@ import (
 )
 
 // ConnectToMaster establishes a connection from the replica to the master.
-func ConnectToMaster(masterHost string, masterPort int) {
+func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Printf("Connecting to master %s:%d\n", masterHost, masterPort)
 	masterAddr := fmt.Sprintf("%s:%d", masterHost, masterPort)
 	conn, err := net.Dial("tcp", masterAddr)
@@ -60,6 +60,23 @@ func ConnectToMaster(masterHost string, masterPort int) {
 		return
 	}
 	fmt.Println("Sent REPLCONF capa command to master")
+
+	// Read the response from the master
+	n, err = conn.Read(response)
+	if err != nil {
+		fmt.Println("Error reading response from master:", err)
+		return
+	}
+	fmt.Println("Received response from master:", string(response[:n]))
+
+	// Send the PSYNC command
+	psyncCommand := "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n"
+	_, err = conn.Write([]byte(psyncCommand))
+	if err != nil {
+		fmt.Println("Error sending PSYNC command to master:", err)
+		return
+	}
+	fmt.Println("Sent PSYNC command to master")
 
 	// Read the response from the master
 	n, err = conn.Read(response)
