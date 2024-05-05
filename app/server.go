@@ -71,6 +71,7 @@ func main() {
 	args := os.Args
 	fmt.Println(args)
 	for i < len(args) {
+		fmt.Println(args[i])
 		switch args[i] {
 		case "--port":
 			port, err = strconv.Atoi(args[i+2])
