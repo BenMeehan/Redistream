@@ -33,14 +33,21 @@ func main() {
 	}
 
 	// Read the response from the server
-	response, err := reader.ReadString('\n')
-	if err != nil {
-		fmt.Println("Error reading response:", err)
-		return
+	var response string
+	for {
+		line, err := reader.ReadString('\n')
+		fmt.Println(line)
+		if err != nil {
+			fmt.Println("Error reading response:", err)
+			return
+		}
+		response += line
+		if line == "\r\n" { // Check for end of response
+			break
+		}
 	}
 
 	// Print the response
 	fmt.Println("Response from server:", response)
 
-	// You can add more commands here as needed
 }
