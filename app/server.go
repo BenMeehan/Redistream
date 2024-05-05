@@ -76,7 +76,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("Client connected from", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriterSize(conn, 8192)
+	writer := bufio.NewWriterSize(conn, 20000)
 
 	for {
 		commands, err := readCommand(reader)
@@ -155,7 +155,7 @@ func handleConnection(conn net.Conn) {
 					if isReplica {
 						response = "$10\r\nrole:slave\r\n"
 					} else {
-						response = fmt.Sprintf(`*2\r\n$11\r\nrole:master\r\n$%d\r\nmaster_replid:%s\r\n$%d\r\nmaster_repl_offset:%d\r\n`, len(masterReplID)+14, masterReplID, len(strconv.Itoa(masterReplOffset))+19, masterReplOffset)
+						response = fmt.Sprintf(`$11\r\nrole:master\r\n$%d\r\nmaster_replid:%s\r\n$%d\r\nmaster_repl_offset:%d\r\n`, len(masterReplID)+14, masterReplID, len(strconv.Itoa(masterReplOffset))+19, masterReplOffset)
 					}
 					i++
 				} else {
