@@ -17,6 +17,8 @@ var KeyValuePairs = make(map[string]string)
 // Map to store expiry time for each key
 var KeyExpiryTime = make(map[string]int64)
 
+var isReplica bool
+
 // readCommand reads and parses a Redis command from the client connection.
 func readCommand(reader *bufio.Reader) ([]string, error) {
 	line, err := reader.ReadString('\n')
@@ -148,7 +150,11 @@ func handleConnection(conn net.Conn) {
 				}
 			case "INFO":
 				if i < len(commands)-1 && strings.ToUpper(commands[i+1]) == "REPLICATION" {
-					response = "$11\r\nrole:master\r\n"
+					if isReplica {
+						response = "$12\r\nrole:slave\r\n" // Assuming the server is always a slave when started with --replicaof flag
+					} else {
+						response = "+INFO replication\r\n"
+					}
 					i++
 				} else {
 					response = "$13\r\n# Replication\r\n"
@@ -168,6 +174,9 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	port := flag.Int("port", 6379, "Port number for the Redis server")
+	flag.Parse()
+
+	flag.BoolVar(&isReplica, "replicaof", false, "Start the server as a replica")
 	flag.Parse()
 
 	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
