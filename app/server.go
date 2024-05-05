@@ -91,13 +91,12 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
+			fmt.Println(masterHost, masterPort)
 			i += 3
 		default:
 			i++
 		}
 	}
-
-	fmt.Println(masterHost, masterPort)
 
 	masterReplID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
 	masterReplOffset = 0
