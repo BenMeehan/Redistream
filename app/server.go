@@ -44,13 +44,13 @@ func handleConnection(conn net.Conn) {
 			case "PING":
 				response = Ping()
 			case "ECHO":
-				response = Echo(i, commands)
+				response, i = Echo(i, commands)
 			case "SET":
-				response = Set(i, commands)
+				response, i = Set(i, commands)
 			case "GET":
-				response = Get(i, commands)
+				response, i = Get(i, commands)
 			case "INFO":
-				response = Info(i, commands)
+				response, i = Info(i, commands)
 			default:
 				response = "-ERR unknown command\r\n"
 			}

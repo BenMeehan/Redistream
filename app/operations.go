@@ -11,7 +11,7 @@ func Ping() string {
 	return "+PONG\r\n"
 }
 
-func Echo(i int, commands []string) string {
+func Echo(i int, commands []string) (string, int) {
 	var response string
 	if i < len(commands)-1 {
 		response = fmt.Sprintf("$%d\r\n%s\r\n", len(commands[i+1]), commands[i+1])
@@ -19,10 +19,10 @@ func Echo(i int, commands []string) string {
 	} else {
 		response = "-ERR wrong number of arguments for 'echo' command\r\n"
 	}
-	return response
+	return response, i
 }
 
-func Set(i int, commands []string) string {
+func Set(i int, commands []string) (string, int) {
 	var response string
 	if i < len(commands)-2 {
 		key := commands[i+1]
@@ -34,7 +34,7 @@ func Set(i int, commands []string) string {
 			expiry, err := strconv.Atoi(commands[i+4])
 			if err != nil {
 				response = "-ERR invalid expiry\r\n"
-				return response
+				return response, i
 			}
 
 			KeyExpiryTime[key] = time.Now().UnixNano() + int64(expiry)*int64(time.Millisecond)
@@ -54,10 +54,10 @@ func Set(i int, commands []string) string {
 	} else {
 		response = "-ERR wrong number of arguments for 'set' command\r\n"
 	}
-	return response
+	return response, i
 }
 
-func Get(i int, commands []string) string {
+func Get(i int, commands []string) (string, int) {
 	var response string
 	if i < len(commands)-1 {
 		key := commands[i+1]
@@ -79,10 +79,10 @@ func Get(i int, commands []string) string {
 	} else {
 		response = "-ERR wrong number of arguments for 'get' command\r\n"
 	}
-	return response
+	return response, i
 }
 
-func Info(i int, commands []string) string {
+func Info(i int, commands []string) (string, int) {
 	var response string
 	if i < len(commands)-1 && strings.ToUpper(commands[i+1]) == "REPLICATION" {
 		if isReplica {
@@ -95,5 +95,5 @@ func Info(i int, commands []string) string {
 	} else {
 		response = "$13\r\n# Replication\r\n"
 	}
-	return response
+	return response, i
 }
