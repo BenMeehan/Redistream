@@ -146,6 +146,13 @@ func handleConnection(conn net.Conn) {
 				} else {
 					response = "-ERR wrong number of arguments for 'get' command\r\n"
 				}
+			case "INFO":
+				if i < len(commands)-1 && strings.ToUpper(commands[i+1]) == "REPLICATION" {
+					response = "$13\r\n# Replication\r\n$15\r\nrole:master\r\n"
+					i++
+				} else {
+					response = "$13\r\n# Replication\r\n"
+				}
 			default:
 				response = "-ERR unknown command\r\n"
 			}
