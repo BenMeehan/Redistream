@@ -174,15 +174,13 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	port := flag.Int("port", 6379, "Port number for the Redis server")
+
+	replicaOfHost := flag.String("replicaof", "", "Host to replicate from")
+	replicaOfPort := flag.Int("replicaof-port", 0, "Port to replicate from")
+
 	flag.Parse()
 
-	replicaOfHost := ""
-	replicaOfPort := 0
-
-	flag.StringVar(&replicaOfHost, "replicaof", "", "Host to replicate from")
-	flag.IntVar(&replicaOfPort, "replicaof-port", 0, "Port to replicate from")
-
-	if len(replicaOfHost) > 0 && replicaOfPort == 0 {
+	if len(*replicaOfHost) > 0 && *replicaOfPort == 0 {
 		isReplica = true
 	}
 
