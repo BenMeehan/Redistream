@@ -151,9 +151,9 @@ func handleConnection(conn net.Conn) {
 			case "INFO":
 				if i < len(commands)-1 && strings.ToUpper(commands[i+1]) == "REPLICATION" {
 					if isReplica {
-						response = "$12\r\nrole:slave\r\n" // Assuming the server is always a slave when started with --replicaof flag
+						response = "$10\r\nrole:slave\r\n"
 					} else {
-						response = "+INFO replication\r\n"
+						response = "$11\r\nrole:master\r\n"
 					}
 					i++
 				} else {
