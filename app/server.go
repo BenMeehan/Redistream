@@ -2,10 +2,10 @@ package main
 
 import (
 	"bufio"
-	"flag"
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 )
 
@@ -18,9 +18,8 @@ var KeyExpiryTime = make(map[string]int64)
 var isReplica bool
 var masterReplID string
 var masterReplOffset int
-var masterFlags ArrayFlags
 var masterHost string
-var masterPort string
+var masterPort int
 
 // handleConnection handles commands from a client connection.
 func handleConnection(conn net.Conn) {
@@ -66,26 +65,50 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
-	port := flag.Int("port", 6379, "Port number for the Redis server")
-	flag.Var(&masterFlags, "replicaof", "Host and port to replicate from (format: host port)")
-	flag.Parse()
-
-	if len(masterFlags) > 0 {
-		isReplica = true
-		fmt.Println(masterFlags)
+	var err error
+	var i int
+	port := 6379
+	args := os.Args
+	for i < len(args) {
+		switch args[i] {
+		case "--port":
+			port, err = strconv.Atoi(args[i+2])
+			if err != nil {
+				fmt.Println("Invalid port")
+				os.Exit(1)
+			}
+			i += 2
+		case "--replicaof":
+			isReplica = true
+			masterHost = args[i+1]
+			if len(masterHost) == 0 {
+				fmt.Println("Invalid master hostname")
+				os.Exit(1)
+			}
+			masterPort, err = strconv.Atoi(args[i+2])
+			if err != nil {
+				fmt.Println("Invalid master port")
+				os.Exit(1)
+			}
+			i += 3
+		default:
+			i++
+		}
 	}
+
+	fmt.Println(masterHost, masterPort)
 
 	masterReplID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
 	masterReplOffset = 0
 
-	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
+	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
 	if err != nil {
-		fmt.Println("Failed to bind to port", *port, ":", err)
+		fmt.Println("Failed to bind to port", port, ":", err)
 		os.Exit(1)
 	}
 	defer l.Close()
 
-	fmt.Println("Server listening on port", *port)
+	fmt.Println("Server listening on port", port)
 
 	for {
 		conn, err := l.Accept()
