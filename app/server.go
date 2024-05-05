@@ -66,7 +66,7 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	var err error
-	var i int
+	i := 1
 	port := 6379
 	args := os.Args
 	fmt.Println(args)
