@@ -148,7 +148,7 @@ func handleConnection(conn net.Conn) {
 				}
 			case "INFO":
 				if i < len(commands)-1 && strings.ToUpper(commands[i+1]) == "REPLICATION" {
-					response = "$15\r\nrole:master\r\n"
+					response = "$11\r\nrole:master\r\n"
 					i++
 				} else {
 					response = "$13\r\n# Replication\r\n"
