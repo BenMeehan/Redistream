@@ -69,6 +69,7 @@ func main() {
 	var i int
 	port := 6379
 	args := os.Args
+	fmt.Println(args)
 	for i < len(args) {
 		switch args[i] {
 		case "--port":
