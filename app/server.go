@@ -176,8 +176,15 @@ func main() {
 	port := flag.Int("port", 6379, "Port number for the Redis server")
 	flag.Parse()
 
-	flag.BoolVar(&isReplica, "replicaof", false, "Start the server as a replica")
-	flag.Parse()
+	replicaOfHost := ""
+	replicaOfPort := 0
+
+	flag.StringVar(&replicaOfHost, "replicaof", "", "Host to replicate from")
+	flag.IntVar(&replicaOfPort, "replicaof-port", 0, "Port to replicate from")
+
+	if len(replicaOfHost) > 0 && replicaOfPort == 0 {
+		isReplica = true
+	}
 
 	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
 	if err != nil {
