@@ -91,7 +91,7 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
-			fmt.Println(masterHost, masterPort)
+			ConnectToMaster(masterHost, masterPort)
 			i += 3
 		default:
 			i++
