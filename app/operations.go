@@ -97,3 +97,42 @@ func Info(i int, commands []string) (string, int) {
 	}
 	return response, i
 }
+
+// HandleREPLCONF handles the REPLCONF command for replica configuration
+func HandleREPLCONF(index int, commands []string) (string, int) {
+	var response string
+	if index < len(commands)-1 {
+		subCommand := strings.ToUpper(commands[index+1])
+		switch subCommand {
+		case "LISTENING-PORT":
+			if index < len(commands)-2 {
+				_, err := strconv.Atoi(commands[index+2])
+				if err != nil {
+					response = "-ERR invalid listening port\r\n"
+				} else {
+					response = "+OK\r\n"
+					index += 2
+				}
+			} else {
+				response = "-ERR wrong number of arguments for 'REPLCONF' command\r\n"
+			}
+		case "CAPA":
+			if index < len(commands)-2 {
+				capability := strings.ToUpper(commands[index+2])
+				if capability == "PSYNC2" {
+					response = "+OK\r\n"
+				} else {
+					response = "-ERR unsupported capability\r\n"
+				}
+				index += 2
+			} else {
+				response = "-ERR wrong number of arguments for 'REPLCONF' command\r\n"
+			}
+		default:
+			response = "-ERR unknown subcommand for 'REPLCONF' command\r\n"
+		}
+	} else {
+		response = "-ERR wrong number of arguments for 'REPLCONF' command\r\n"
+	}
+	return response, index
+}

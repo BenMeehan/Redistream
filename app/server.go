@@ -15,6 +15,7 @@ var KeyValuePairs = make(map[string]string)
 // Map to store expiry time for each key
 var KeyExpiryTime = make(map[string]int64)
 
+var port = 6379
 var isReplica bool
 var masterReplID string
 var masterReplOffset int
@@ -51,6 +52,8 @@ func handleConnection(conn net.Conn) {
 				response, i = Get(i, commands)
 			case "INFO":
 				response, i = Info(i, commands)
+			case "REPLCONF":
+				response, i = HandleREPLCONF(i, commands)
 			default:
 				response = "-ERR unknown command\r\n"
 			}
@@ -67,7 +70,6 @@ func handleConnection(conn net.Conn) {
 func main() {
 	var err error
 	i := 1
-	port := 6379
 	args := os.Args
 	fmt.Println(args)
 	for i < len(args) {
