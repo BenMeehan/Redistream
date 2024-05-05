@@ -106,10 +106,11 @@ func HandleREPLCONF(index int, commands []string) (string, int) {
 		switch subCommand {
 		case "LISTENING-PORT":
 			if index < len(commands)-2 {
-				_, err := strconv.Atoi(commands[index+2])
+				rport, err := strconv.Atoi(commands[index+2])
 				if err != nil {
 					response = "-ERR invalid listening port\r\n"
 				} else {
+					replicaPort = rport
 					response = "+OK\r\n"
 					index += 2
 				}

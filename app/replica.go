@@ -6,6 +6,10 @@ import (
 	"strconv"
 )
 
+var replicaPort = 6379
+var replicationId = "?"
+var replicationOffset = -1
+
 // ConnectToMaster establishes a connection from the replica to the master.
 func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Printf("Connecting to master %s:%d\n", masterHost, masterPort)
@@ -70,7 +74,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Println("Received response from master:", string(response[:n]))
 
 	// Send the PSYNC command
-	psyncCommand := "*3\r\n$5\r\nPSYNC\r\n$1\r\n?\r\n$2\r\n-1\r\n"
+	psyncCommand := fmt.Sprintf("*3\r\n$5\r\nPSYNC\r\n$1\r\n%s\r\n$2\r\n%d\r\n", replicationId, replicationOffset)
 	_, err = conn.Write([]byte(psyncCommand))
 	if err != nil {
 		fmt.Println("Error sending PSYNC command to master:", err)
