@@ -18,6 +18,8 @@ var KeyValuePairs = make(map[string]string)
 var KeyExpiryTime = make(map[string]int64)
 
 var isReplica bool
+var masterReplID string
+var masterReplOffset int
 
 // readCommand reads and parses a Redis command from the client connection.
 func readCommand(reader *bufio.Reader) ([]string, error) {
@@ -153,7 +155,7 @@ func handleConnection(conn net.Conn) {
 					if isReplica {
 						response = "$10\r\nrole:slave\r\n"
 					} else {
-						response = "$11\r\nrole:master\r\n"
+						response = fmt.Sprintf(`$11\r\nrole:master\r\n$%d\r\nmaster_replid:%s\r\n$%d\r\nmaster_repl_offset:%d\r\n`, len(masterReplID)+14, masterReplID, len(strconv.Itoa(masterReplOffset))+19, masterReplOffset)
 					}
 					i++
 				} else {
@@ -180,6 +182,9 @@ func main() {
 	if len(*replicaOf) > 0 {
 		isReplica = true
 	}
+
+	masterReplID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
+	masterReplOffset = 0
 
 	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", *port))
 	if err != nil {
