@@ -26,6 +26,15 @@ func ConnectToMaster(masterHost string, masterPort int) {
 	}
 	fmt.Println("Sent PING command to master")
 
+	// Read the response from the master
+	response := make([]byte, 1024)
+	n, err := conn.Read(response)
+	if err != nil {
+		fmt.Println("Error reading response from master:", err)
+		return
+	}
+	fmt.Println("Received response from master:", string(response[:n]))
+
 	// Send the REPLCONF command with listening-port
 	listeningPortCommand := "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + strconv.Itoa(len(strconv.Itoa(port))) + "\r\n" + strconv.Itoa(port) + "\r\n"
 	_, err = conn.Write([]byte(listeningPortCommand))
@@ -35,6 +44,14 @@ func ConnectToMaster(masterHost string, masterPort int) {
 	}
 	fmt.Println("Sent REPLCONF listening-port command to master")
 
+	// Read the response from the master
+	n, err = conn.Read(response)
+	if err != nil {
+		fmt.Println("Error reading response from master:", err)
+		return
+	}
+	fmt.Println("Received response from master:", string(response[:n]))
+
 	// Send the REPLCONF command with capa psync2
 	capaCommand := "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"
 	_, err = conn.Write([]byte(capaCommand))
@@ -43,4 +60,12 @@ func ConnectToMaster(masterHost string, masterPort int) {
 		return
 	}
 	fmt.Println("Sent REPLCONF capa command to master")
+
+	// Read the response from the master
+	n, err = conn.Read(response)
+	if err != nil {
+		fmt.Println("Error reading response from master:", err)
+		return
+	}
+	fmt.Println("Received response from master:", string(response[:n]))
 }
