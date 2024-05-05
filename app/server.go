@@ -18,6 +18,9 @@ var KeyExpiryTime = make(map[string]int64)
 var isReplica bool
 var masterReplID string
 var masterReplOffset int
+var masterFlags ArrayFlags
+var masterHost string
+var masterPort string
 
 // handleConnection handles commands from a client connection.
 func handleConnection(conn net.Conn) {
@@ -64,10 +67,10 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	port := flag.Int("port", 6379, "Port number for the Redis server")
-	replicaOf := flag.String("replicaof", "", "Host and port to replicate from (format: host port)")
+	flag.Var(&masterFlags, "replicaof", "Host and port to replicate from (format: host port)")
 	flag.Parse()
 
-	if len(*replicaOf) > 0 {
+	if len(masterFlags) > 0 {
 		isReplica = true
 	}
 
