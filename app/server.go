@@ -42,6 +42,7 @@ func handleConnection(conn net.Conn) {
 			cmd := commands[i]
 			var response string
 			var file []byte
+			fmt.Println(cmd)
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = Ping()
