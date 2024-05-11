@@ -7,7 +7,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 // In-memory map to store the redis key-value pairs
@@ -41,8 +40,6 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		fmt.Println("yooooooooo", isReplica, commands)
-
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]
 			var response string
@@ -54,7 +51,6 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				time.Sleep(1 * time.Second)
 				PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
@@ -136,7 +132,7 @@ func main() {
 	fmt.Println("Server listening on port", port)
 
 	if isReplica {
-		ConnectToMasterHandshake(masterHost, masterPort)
+		go ConnectToMasterHandshake(masterHost, masterPort)
 	}
 
 	for {
