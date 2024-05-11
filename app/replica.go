@@ -93,13 +93,13 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	}
 	fmt.Println("Received response from master:", string(response[:n]))
 
-	// v := strings.Split(string(response[:n]), " ")
-	// replicationId = v[1]
-	// replicationOffset, err = strconv.Atoi(v[2])
-	// if err != nil {
-	// 	fmt.Println("Invalid replication offset from master:", err)
-	// 	return
-	// }
+	v := strings.Split(string(response[:n]), " ")
+	replicationId = v[1]
+	replicationOffset, err = strconv.Atoi(v[2])
+	if err != nil {
+		fmt.Println("Invalid replication offset from master:", err)
+		return
+	}
 
 	fmt.Println("Updated master replication id and offset:", replicationId, replicationOffset)
 
