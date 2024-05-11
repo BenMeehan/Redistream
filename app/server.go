@@ -64,7 +64,12 @@ func handleConnection(conn net.Conn) {
 			case "PSYNC":
 				response, i = Psync(i)
 				file = SendEmptyRDBFile(conn)
-				replicas = append(replicas, conn)
+				replConn, err := net.Dial("tcp", fmt.Sprintf("0.0.0.0:%d", replicaPort))
+				if err != nil {
+					fmt.Println("Error connecting to replica:", err)
+					return
+				}
+				replicas = append(replicas, replConn)
 			default:
 				response = "-ERR unknown command\r\n"
 			}
@@ -116,7 +121,6 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
-			ConnectToMasterHandshake(masterHost, masterPort)
 			i += 3
 		default:
 			i++
@@ -134,6 +138,10 @@ func main() {
 	defer l.Close()
 
 	fmt.Println("Server listening on port", port)
+
+	if isReplica {
+		ConnectToMasterHandshake(masterHost, masterPort)
+	}
 
 	for {
 		conn, err := l.Accept()

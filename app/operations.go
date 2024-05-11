@@ -159,9 +159,8 @@ func SendEmptyRDBFile(conn net.Conn) []byte {
 	}
 
 	rdbLength := len(emptyRDBBytes)
-	lengthPrefix := fmt.Sprintf(`$%d\r\n`, rdbLength)
+	lengthPrefix := "$" + strconv.Itoa(rdbLength) + "\r\n"
 	data = append([]byte(lengthPrefix), emptyRDBBytes...)
-	fmt.Println(data)
 	return data
 }
 
@@ -172,7 +171,7 @@ func PropagateToReplicas(replConnections []net.Conn, commands []string) {
 	}
 	for _, r := range replicas {
 		replWriter := bufio.NewWriter(r)
-		go WriteResponse(replWriter, command)
-		fmt.Println("Sent command", command, "to replica", r)
+		WriteResponse(replWriter, command)
+		fmt.Println("Sent command", command, "to replica", r.RemoteAddr())
 	}
 }
