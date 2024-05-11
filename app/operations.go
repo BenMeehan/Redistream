@@ -157,10 +157,10 @@ func SendEmptyRDBFile(conn net.Conn) {
 	}
 
 	rdbLength := len(emptyRDBBytes)
-	lengthPrefix := fmt.Sprintf("$%d\r\n%s", rdbLength, emptyRDBBytes)
-	// data := append([]byte(lengthPrefix), emptyRDBBytes...)
+	lengthPrefix := fmt.Sprintf("$%d\r\n", rdbLength)
+	data := append([]byte(lengthPrefix), emptyRDBBytes...)
 
-	_, err = conn.Write([]byte(lengthPrefix))
+	_, err = conn.Write(data)
 	if err != nil {
 		fmt.Println("Error sending RDB file to replica:", err)
 		return
