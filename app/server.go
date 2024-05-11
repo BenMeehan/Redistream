@@ -32,7 +32,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("Client connected from", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
+	writer := bufio.NewWriterSize(conn, 16000)
 
 	for {
 		commands, err := ReadCommand(reader)
