@@ -54,7 +54,7 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				time.Sleep(10 * time.Second)
+				time.Sleep(1 * time.Second)
 				PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
