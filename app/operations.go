@@ -161,6 +161,7 @@ func SendEmptyRDBFile(conn net.Conn) []byte {
 	rdbLength := len(emptyRDBBytes)
 	lengthPrefix := fmt.Sprintf(`$%d\r\n`, rdbLength)
 	data = append([]byte(lengthPrefix), emptyRDBBytes...)
+	fmt.Println(data)
 	return data
 }
 
