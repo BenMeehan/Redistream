@@ -146,25 +146,19 @@ func Psync() string {
 }
 
 // SendEmptyRDBFile sends an empty RDB file to the replica.
-func SendEmptyRDBFile(conn net.Conn) {
+func SendEmptyRDBFile(conn net.Conn) []byte {
+	var data []byte
 	fmt.Println("Sending empty RDB file to replica")
 
 	emptyRDBHex := "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
 	emptyRDBBytes, err := hex.DecodeString(emptyRDBHex)
 	if err != nil {
 		fmt.Println("Error decoding empty RDB hex:", err)
-		return
+		return data
 	}
 
 	rdbLength := len(emptyRDBBytes)
 	lengthPrefix := fmt.Sprintf("$%d\r\n", rdbLength)
-	// data := append([]byte(lengthPrefix), emptyRDBBytes...)
-
-	_, err = conn.Write([]byte(lengthPrefix))
-	if err != nil {
-		fmt.Println("Error sending RDB file to replica:", err)
-		return
-	}
-
-	fmt.Println("Sent empty RDB file to replica")
+	data = append([]byte(lengthPrefix), emptyRDBBytes...)
+	return data
 }

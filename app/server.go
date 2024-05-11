@@ -41,6 +41,7 @@ func handleConnection(conn net.Conn) {
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]
 			var response string
+			var file []byte
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = Ping()
@@ -56,7 +57,7 @@ func handleConnection(conn net.Conn) {
 				response, i = HandleREPLCONF(i, commands)
 			case "PSYNC":
 				response = Psync()
-				SendEmptyRDBFile(conn)
+				file = SendEmptyRDBFile(conn)
 			default:
 				response = "-ERR unknown command\r\n"
 			}
@@ -65,6 +66,14 @@ func handleConnection(conn net.Conn) {
 			if err != nil {
 				fmt.Println("Error writing response:", err)
 				return
+			}
+
+			if len(file) > 0 {
+				err := WriteResponse(writer, string(file))
+				if err != nil {
+					fmt.Println("Error writing file:", err)
+					return
+				}
 			}
 		}
 	}
