@@ -52,9 +52,6 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				if isReplica {
-					response = ""
-				}
 				PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
@@ -70,7 +67,7 @@ func handleConnection(conn net.Conn) {
 				response = "-ERR unknown command\r\n"
 			}
 
-			if len(response) > 0 {
+			if !isReplica {
 				err := WriteResponse(writer, response)
 				if err != nil {
 					fmt.Println("Error writing response:", err)
@@ -78,7 +75,7 @@ func handleConnection(conn net.Conn) {
 				}
 			}
 
-			if len(response) > 0 && len(file) > 0 {
+			if !isReplica && len(file) > 0 {
 				err := WriteResponse(writer, string(file))
 				if err != nil {
 					fmt.Println("Error writing file:", err)
