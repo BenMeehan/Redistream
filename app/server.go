@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -39,6 +40,8 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Error reading command:", err)
 			return
 		}
+
+		log.Println("hello", isReplica, commands)
 
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]
@@ -113,7 +116,6 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
-			ConnectToMasterHandshake(masterHost, masterPort)
 			i += 3
 		default:
 			i++
@@ -131,6 +133,10 @@ func main() {
 	defer l.Close()
 
 	fmt.Println("Server listening on port", port)
+
+	if isReplica {
+		ConnectToMasterHandshake(masterHost, masterPort)
+	}
 
 	for {
 		conn, err := l.Accept()
