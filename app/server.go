@@ -32,7 +32,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("Client connected from", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriterSize(conn, 16000)
+	writer := bufio.NewWriter(conn)
 
 	for {
 		commands, err := ReadCommand(reader)
@@ -116,6 +116,7 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
+			ConnectToMasterHandshake(masterHost, masterPort)
 			i += 3
 		default:
 			i++
@@ -133,10 +134,6 @@ func main() {
 	defer l.Close()
 
 	fmt.Println("Server listening on port", port)
-
-	if isReplica {
-		ConnectToMasterHandshake(masterHost, masterPort)
-	}
 
 	for {
 		conn, err := l.Accept()
