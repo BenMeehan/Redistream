@@ -53,7 +53,6 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				fmt.Println("heyya", replicas)
 				PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
