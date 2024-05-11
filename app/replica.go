@@ -139,7 +139,7 @@ func ReceiveRDBFile(conn net.Conn) error {
 		return err
 	}
 
-	fmt.Println("Received RDB file from master")
+	fmt.Println("Received RDB file from master", string(rdbData))
 
 	return nil
 }
