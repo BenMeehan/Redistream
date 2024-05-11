@@ -54,6 +54,7 @@ func handleConnection(conn net.Conn) {
 				response, i = Set(i, commands)
 				for _, r := range replicas {
 					replWriter := bufio.NewWriter(r)
+					fmt.Println(original)
 					go WriteResponse(replWriter, original)
 				}
 			case "GET":
