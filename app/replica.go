@@ -144,6 +144,7 @@ func ReceiveRDBFile(conn net.Conn) error {
 }
 
 func handlePropagation(conn net.Conn) {
+	fmt.Println("handling propagation")
 	reader := bufio.NewReader(conn)
 	for {
 		commands, err := ReadCommand(reader)

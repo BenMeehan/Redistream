@@ -24,6 +24,13 @@ var masterPort int
 
 var replicas = make([]net.Conn, 0)
 
+func sendResponse(writer *bufio.Writer, response string) {
+	err := WriteResponse(writer, response)
+	if err != nil {
+		fmt.Println("Error writing response:", err)
+	}
+}
+
 // handleConnection handles commands from a client connection.
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -47,37 +54,32 @@ func handleConnection(conn net.Conn) {
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = Ping()
+				sendResponse(writer, response)
 			case "ECHO":
 				response, i = Echo(i, commands)
+				sendResponse(writer, response)
 			case "SET":
 				response, i = Set(i, commands)
 				PropagateToReplicas(replicas, commands)
+				sendResponse(writer, response)
 			case "GET":
 				response, i = Get(i, commands)
+				sendResponse(writer, response)
 			case "INFO":
 				response, i = Info(i, commands)
+				sendResponse(writer, response)
 			case "REPLCONF":
 				response, i = HandleREPLCONF(i, commands)
+				sendResponse(writer, response)
 			case "PSYNC":
 				response, i = Psync(i)
+				sendResponse(writer, response)
 				file = SendEmptyRDBFile(conn)
+				sendResponse(writer, string(file))
 				replicas = append(replicas, conn)
 			default:
 				response = "-ERR unknown command\r\n"
-			}
-
-			err := WriteResponse(writer, response)
-			if err != nil {
-				fmt.Println("Error writing response:", err)
-				return
-			}
-
-			if len(file) > 0 {
-				err := WriteResponse(writer, string(file))
-				if err != nil {
-					fmt.Println("Error writing file:", err)
-					return
-				}
+				sendResponse(writer, response)
 			}
 		}
 	}
