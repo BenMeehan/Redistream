@@ -24,10 +24,17 @@ var masterPort int
 
 var replicas = make([]net.Conn, 0)
 
-func sendResponse(writer *bufio.Writer, response string) {
-	err := WriteResponse(writer, response)
-	if err != nil {
-		fmt.Println("Error writing response:", err)
+func sendResponse(conn net.Conn, response string) {
+	// err := WriteResponse(writer, response)
+	// if err != nil {
+	// 	fmt.Println("Error writing response:", err)
+	// }
+	if len(response) > 0 {
+		bytesSent, err := conn.Write([]byte(response))
+		if err != nil {
+			fmt.Printf("[#%d] Error writing response: %v\n", err.Error())
+		}
+		fmt.Printf("[#%d] Bytes sent: %d %q\n", bytesSent, response)
 	}
 }
 
@@ -38,7 +45,7 @@ func handleConnection(conn net.Conn) {
 	fmt.Println("Client connected from", conn.RemoteAddr())
 
 	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
+	// writer := bufio.NewWriter(conn)
 
 	for {
 		commands, err := ReadCommand(reader)
@@ -50,36 +57,36 @@ func handleConnection(conn net.Conn) {
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]
 			var response string
-			var file []byte
+			// var file []byte
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = Ping()
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			case "ECHO":
 				response, i = Echo(i, commands)
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			case "SET":
 				response, i = Set(i, commands)
 				PropagateToReplicas(replicas, commands)
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			case "GET":
 				response, i = Get(i, commands)
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			case "INFO":
 				response, i = Info(i, commands)
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			case "REPLCONF":
 				response, i = HandleREPLCONF(i, commands)
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			case "PSYNC":
 				response, i = Psync(i)
-				sendResponse(writer, response)
-				file = SendEmptyRDBFile(conn)
-				sendResponse(writer, string(file))
+				sendResponse(conn, response)
+				SendEmptyRDBFile(conn)
+				// sendResponse(writer, string(file))
 				replicas = append(replicas, conn)
 			default:
 				response = "-ERR unknown command\r\n"
-				sendResponse(writer, response)
+				sendResponse(conn, response)
 			}
 		}
 	}

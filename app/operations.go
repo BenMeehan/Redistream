@@ -149,18 +149,24 @@ func Psync(i int) (string, int) {
 // SendEmptyRDBFile sends an empty RDB file to the replica.
 func SendEmptyRDBFile(conn net.Conn) []byte {
 	var data []byte
-	fmt.Println("Sending empty RDB file to replica")
+	// fmt.Println("Sending empty RDB file to replica")
 
 	emptyRDBHex := "524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2"
-	emptyRDBBytes, err := hex.DecodeString(emptyRDBHex)
-	if err != nil {
-		fmt.Println("Error decoding empty RDB hex:", err)
-		return data
-	}
+	// emptyRDBBytes, err := hex.DecodeString(emptyRDBHex)
+	// if err != nil {
+	// 	fmt.Println("Error decoding empty RDB hex:", err)
+	// 	return data
+	// }
 
-	rdbLength := len(emptyRDBBytes)
-	lengthPrefix := "$" + strconv.Itoa(rdbLength) + "\r\n"
-	data = append([]byte(lengthPrefix), emptyRDBBytes...)
+	// rdbLength := len(emptyRDBBytes)
+	// lengthPrefix := "$" + strconv.Itoa(rdbLength) + "\r\n"
+	// data = append([]byte(lengthPrefix), emptyRDBBytes...)
+	// return data
+	buffer := make([]byte, hex.DecodedLen(len(emptyRDBHex)))
+	// TODO: check for errors
+	hex.Decode(buffer, []byte(emptyRDBHex))
+	conn.Write([]byte(fmt.Sprintf("$%d\r\n", len(buffer))))
+	conn.Write(buffer)
 	return data
 }
 

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -23,6 +24,8 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 		return
 	}
 
+	reader := bufio.NewReader(conn)
+
 	// Send the PING command to the master
 	pingCommand := "*1\r\n$4\r\nPING\r\n"
 	_, err = conn.Write([]byte(pingCommand))
@@ -33,13 +36,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Println("Sent PING command to master")
 
 	// Read the response from the master
-	response := make([]byte, 1024)
-	n, err := conn.Read(response)
-	if err != nil {
-		fmt.Println("Error reading response from master:", err)
-		return
-	}
-	fmt.Println("Received response from master:", string(response[:n]))
+	reader.ReadString('\n')
 
 	// Send the REPLCONF command with listening-port
 	listeningPortCommand := "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + strconv.Itoa(len(strconv.Itoa(port))) + "\r\n" + strconv.Itoa(port) + "\r\n"
@@ -51,12 +48,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Println("Sent REPLCONF listening-port command to master")
 
 	// Read the response from the master
-	n, err = conn.Read(response)
-	if err != nil {
-		fmt.Println("Error reading response from master:", err)
-		return
-	}
-	fmt.Println("Received response from master:", string(response[:n]))
+	reader.ReadString('\n')
 
 	// Send the REPLCONF command with capa psync2
 	capaCommand := "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"
@@ -68,12 +60,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Println("Sent REPLCONF capa command to master")
 
 	// Read the response from the master
-	n, err = conn.Read(response)
-	if err != nil {
-		fmt.Println("Error reading response from master:", err)
-		return
-	}
-	fmt.Println("Received response from master:", string(response[:n]))
+	reader.ReadString('\n')
 
 	// Send the PSYNC command
 	psyncCommand := fmt.Sprintf("*3\r\n$5\r\nPSYNC\r\n$1\r\n%s\r\n$2\r\n%d\r\n", replicationId, replicationOffset)
@@ -85,12 +72,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	fmt.Println("Sent PSYNC command to master")
 
 	// Read the response from the master
-	n, err = conn.Read(response)
-	if err != nil {
-		fmt.Println("Error reading response from master:", err)
-		return
-	}
-	fmt.Println("Received response from master:", string(response[:n]))
+	reader.ReadString('\n')
 
 	// v := strings.Split(string(response[:n]), " ")
 	// replicationId = v[1]
@@ -101,16 +83,24 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	// }
 
 	// fmt.Println("Updated master replication id and offset:", replicationId, replicationOffset)
-
-	// Check if the response indicates a full resynchronization
-	fullResyncPrefix := "+FULLRESYNC "
-	if strings.HasPrefix(string(response[:n]), fullResyncPrefix) {
-		err := ReceiveRDBFile(conn)
-		if err != nil {
-			fmt.Println("Error receiving RDB file:", err)
-			return
-		}
+	// Read the response from the master
+	// receiving RDB (ignoring it for now)
+	response, _ := reader.ReadString('\n')
+	if response[0] != '$' {
+		fmt.Printf("Invalid response\n")
+		os.Exit(1)
 	}
+	rdbSize, _ := strconv.Atoi(response[1 : len(response)-2])
+	buffer := make([]byte, rdbSize)
+	receivedSize, err := reader.Read(buffer)
+	if err != nil {
+		fmt.Printf("Invalid RDB received %v\n", err)
+		os.Exit(1)
+	}
+	if rdbSize != receivedSize {
+		fmt.Printf("Size mismatch - got: %d, want: %d\n", receivedSize, rdbSize)
+	}
+
 	go handlePropagation(conn)
 }
 
