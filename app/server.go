@@ -40,11 +40,11 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
+		fmt.Println(commands)
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]
 			var response string
 			var file []byte
-			fmt.Println(cmd)
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = Ping()
