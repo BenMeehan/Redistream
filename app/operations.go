@@ -164,7 +164,11 @@ func SendEmptyRDBFile(conn net.Conn) []byte {
 	return data
 }
 
-func PropagateToReplicas(replConnections []net.Conn, command string) {
+func PropagateToReplicas(replConnections []net.Conn, commands []string) {
+	command := fmt.Sprintf("%d\r\n", len(commands))
+	for _, c := range commands {
+		fmt.Sprintf("%s$%d\r\n%s\r\n", command, len(c), c)
+	}
 	for _, r := range replicas {
 		replWriter := bufio.NewWriter(r)
 		go WriteResponse(replWriter, command)
