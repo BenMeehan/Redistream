@@ -165,6 +165,7 @@ func SendEmptyRDBFile(conn net.Conn) []byte {
 }
 
 func PropagateToReplicas(replConnections []net.Conn, commands []string) {
+	time.Sleep(1 * time.Second)
 	command := fmt.Sprintf("*%d\r\n", len(commands))
 	for _, c := range commands {
 		command = fmt.Sprintf("%s$%d\r\n%s\r\n", command, len(c), c)
