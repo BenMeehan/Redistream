@@ -101,7 +101,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	// 	return
 	// }
 
-	fmt.Println("Updated master replication id and offset:", replicationId, replicationOffset)
+	// fmt.Println("Updated master replication id and offset:", replicationId, replicationOffset)
 
 	// Check if the response indicates a full resynchronization
 	fullResyncPrefix := "+FULLRESYNC "
