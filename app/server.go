@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -41,8 +40,6 @@ func handleConnection(conn net.Conn) {
 			return
 		}
 
-		log.Println("hello", isReplica, commands)
-
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]
 			var response string
@@ -64,18 +61,9 @@ func handleConnection(conn net.Conn) {
 			case "PSYNC":
 				response, i = Psync(i)
 				file = SendEmptyRDBFile(conn)
-				replConn, err := net.Dial("tcp", fmt.Sprintf("0.0.0.0:%d", replicaPort))
-				if err != nil {
-					fmt.Println("Error connecting to replica:", err)
-					return
-				}
-				replicas = append(replicas, replConn)
+				replicas = append(replicas, conn)
 			default:
 				response = "-ERR unknown command\r\n"
-			}
-
-			if cmd == "SET" && isReplica {
-				continue
 			}
 
 			err := WriteResponse(writer, response)

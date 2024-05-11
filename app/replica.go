@@ -111,7 +111,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 			return
 		}
 	}
-
+	go handlePropagation(conn)
 }
 
 // ReceiveRDBFile receives the RDB file from the master.
@@ -141,4 +141,22 @@ func ReceiveRDBFile(conn net.Conn) error {
 	fmt.Println("Received RDB file from master", string(rdbData))
 
 	return nil
+}
+
+func handlePropagation(conn net.Conn) {
+	reader := bufio.NewReader(conn)
+	for {
+		commands, err := ReadCommand(reader)
+		if err != nil {
+			fmt.Println("Error reading command:", err)
+			return
+		}
+		for i := 0; i < len(commands); i++ {
+			cmd := commands[i]
+			switch strings.ToUpper(cmd) {
+			case "SET":
+				Set(i, commands)
+			}
+		}
+	}
 }
