@@ -34,7 +34,7 @@ func handleConnection(conn net.Conn) {
 	writer := bufio.NewWriter(conn)
 
 	for {
-		commands, original, err := ReadCommand(reader)
+		commands, err := ReadCommand(reader)
 		if err != nil {
 			fmt.Println("Error reading command:", err)
 			return
@@ -52,8 +52,7 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				fmt.Println("heyyya", commands)
-				PropagateToReplicas(replicas, original)
+				PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
 			case "INFO":
