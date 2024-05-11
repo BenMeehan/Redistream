@@ -171,6 +171,6 @@ func PropagateToReplicas(replConnections []net.Conn, commands []string) {
 	}
 	for _, r := range replicas {
 		replWriter := bufio.NewWriter(r)
-		WriteResponse(replWriter, command)
+		go WriteResponse(replWriter, command)
 	}
 }
