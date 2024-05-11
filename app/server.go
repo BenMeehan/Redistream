@@ -27,6 +27,7 @@ var replicas = make([]net.Conn, 0)
 
 // handleConnection handles commands from a client connection.
 func handleConnection(conn net.Conn) {
+	defer conn.Close()
 
 	fmt.Println("Client connected from", conn.RemoteAddr())
 
