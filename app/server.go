@@ -57,7 +57,7 @@ func handleConnection(conn net.Conn) {
 			case "REPLCONF":
 				response, i = HandleREPLCONF(i, commands)
 			case "PSYNC":
-				response = Psync()
+				response, i = Psync(i)
 				file = SendEmptyRDBFile(conn)
 			default:
 				response = "-ERR unknown command\r\n"
