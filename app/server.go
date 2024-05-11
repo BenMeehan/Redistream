@@ -110,7 +110,6 @@ func main() {
 				fmt.Println("Invalid master port")
 				os.Exit(1)
 			}
-			ConnectToMasterHandshake(masterHost, masterPort)
 			i += 3
 		default:
 			i++
@@ -128,6 +127,10 @@ func main() {
 	defer l.Close()
 
 	fmt.Println("Server listening on port", port)
+
+	if isReplica {
+		ConnectToMasterHandshake(masterHost, masterPort)
+	}
 
 	for {
 		conn, err := l.Accept()
