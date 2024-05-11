@@ -67,12 +67,10 @@ func handleConnection(conn net.Conn) {
 				response = "-ERR unknown command\r\n"
 			}
 
-			if !isReplica {
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
+			err := WriteResponse(writer, response)
+			if err != nil {
+				fmt.Println("Error writing response:", err)
+				return
 			}
 
 			if len(file) > 0 {
