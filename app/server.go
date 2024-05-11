@@ -67,6 +67,10 @@ func handleConnection(conn net.Conn) {
 				response = "-ERR unknown command\r\n"
 			}
 
+			if cmd == "SET" && isReplica {
+				continue
+			}
+
 			err := WriteResponse(writer, response)
 			if err != nil {
 				fmt.Println("Error writing response:", err)
