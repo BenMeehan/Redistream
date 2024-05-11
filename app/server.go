@@ -131,12 +131,8 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 }
 
 func (srv *serverState) handleCommand(cmd []string) (response string, resynch bool) {
-	isWrite := false
 
 	switch strings.ToUpper(cmd[0]) {
-	case "COMMAND":
-		response = "+OK\r\n"
-
 	case "PING":
 		response = "+PONG\r\n"
 
@@ -158,6 +154,7 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 			srv.ttl[key] = time.Now().Add(time.Millisecond * time.Duration(expiration))
 		}
 		response = "+OK\r\n"
+		srv.propagateToReplicas(cmd)
 
 	case "GET":
 		key := cmd[1]
@@ -187,10 +184,6 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 			resynch = true
 		}
 
-	}
-
-	if isWrite {
-		srv.propagateToReplicas(cmd)
 	}
 
 	return
