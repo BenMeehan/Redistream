@@ -12,14 +12,14 @@ func EmptyResponse() string {
 }
 
 // readCommand reads and parses a Redis command from the client connection.
-func ReadCommand(reader *bufio.Reader) ([]string, error) {
+func ReadCommand(reader *bufio.Reader) ([]string, string, error) {
 	line, err := reader.ReadString('\n')
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
 
 	commands := make([]string, 0)
@@ -27,27 +27,27 @@ func ReadCommand(reader *bufio.Reader) ([]string, error) {
 	for i := 0; i < length; i++ {
 		line, err := reader.ReadString('\n')
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		elementLength, err := strconv.Atoi(strings.TrimSpace(line[1:]))
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 
 		element := make([]byte, elementLength)
 		_, err = reader.Read(element)
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 		commands = append(commands, string(element))
 
 		_, err = reader.ReadString('\n')
 		if err != nil {
-			return nil, err
+			return nil, "", err
 		}
 	}
 
-	return commands, nil
+	return commands, line, nil
 }
 
 // writeResponse writes a response to the client connection.

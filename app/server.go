@@ -32,7 +32,7 @@ func handleConnection(conn net.Conn) {
 	writer := bufio.NewWriter(conn)
 
 	for {
-		commands, err := ReadCommand(reader)
+		commands, original, err := ReadCommand(reader)
 		if err != nil {
 			fmt.Println("Error reading command:", err)
 			return
@@ -50,6 +50,7 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
+				go WriteResponse(writer, original)
 			case "GET":
 				response, i = Get(i, commands)
 			case "INFO":
