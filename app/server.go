@@ -3,7 +3,6 @@ package main
 import (
 	"bufio"
 	"fmt"
-	"log"
 	"net"
 	"os"
 	"strconv"
@@ -40,8 +39,6 @@ func handleConnection(conn net.Conn) {
 			fmt.Println("Error reading command:", err)
 			return
 		}
-
-		log.Println("hello", isReplica, commands)
 
 		for i := 0; i < len(commands); i++ {
 			cmd := commands[i]

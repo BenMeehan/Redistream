@@ -22,7 +22,6 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 		fmt.Println("Error connecting to master:", err)
 		return
 	}
-	defer conn.Close()
 
 	// Send the PING command to the master
 	pingCommand := "*1\r\n$4\r\nPING\r\n"
