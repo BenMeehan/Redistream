@@ -173,4 +173,5 @@ func PropagateToReplicas(replConnections []net.Conn, commands []string) {
 		replWriter := bufio.NewWriter(r)
 		WriteResponse(replWriter, command)
 	}
+	fmt.Println("Sent command", command, "to replicas")
 }
