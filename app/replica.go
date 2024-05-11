@@ -10,7 +10,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type replica struct {
@@ -130,47 +129,4 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 		}
 		srv.replicaOffset += cmdSize
 	}
-}
-
-func (srv *serverState) handleWait(count, timeout int) string {
-	getAckCmd := []byte(encodeStringArray([]string{"REPLCONF", "GETACK", "*"}))
-
-	acks := 0
-
-	for i := 0; i < len(srv.replicas); i++ {
-		if srv.replicas[i].offset > 0 {
-			bytesWritten, _ := srv.replicas[i].conn.Write(getAckCmd)
-			srv.replicas[i].offset += bytesWritten
-			go func(conn net.Conn) {
-				fmt.Println("waiting response from replica", conn.RemoteAddr().String())
-				buffer := make([]byte, 1024)
-				// TODO: Ignoring result, just "flushing" the response
-				_, err := conn.Read(buffer)
-				if err == nil {
-					fmt.Println("got response from replica", conn.RemoteAddr().String())
-				} else {
-					fmt.Println("error from replica", conn.RemoteAddr().String(), " => ", err.Error())
-				}
-				srv.ackReceived <- true
-			}(srv.replicas[i].conn)
-		} else {
-			acks++
-		}
-	}
-
-	timer := time.After(time.Duration(timeout) * time.Millisecond)
-
-outer:
-	for acks < count {
-		select {
-		case <-srv.ackReceived:
-			acks++
-			fmt.Println("acks =", acks)
-		case <-timer:
-			fmt.Println("timeout! acks =", acks)
-			break outer
-		}
-	}
-
-	return encodeInt(acks)
 }
