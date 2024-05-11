@@ -146,7 +146,6 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 		}
 
 	case "SET":
-		isWrite = true
 		key, value := cmd[1], cmd[2]
 		srv.store[key] = value
 		if len(cmd) == 5 && strings.ToUpper(cmd[3]) == "PX" {
