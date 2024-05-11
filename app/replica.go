@@ -2,88 +2,51 @@ package main
 
 import (
 	"bufio"
+	"encoding/hex"
 	"fmt"
 	"io"
+	"math/rand"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
-var replicaPort = 6379
-var replicationId = "?"
-var replicationOffset = -1
+type replica struct {
+	conn      net.Conn
+	offset    int
+	ackOffset int // TODO: keep track of this also
+}
 
-// ConnectToMaster establishes a connection from the replica to the master.
-func ConnectToMasterHandshake(masterHost string, masterPort int) {
-	fmt.Printf("Connecting to master %s:%d\n", masterHost, masterPort)
-	masterAddr := fmt.Sprintf("%s:%d", masterHost, masterPort)
-	conn, err := net.Dial("tcp", masterAddr)
+func randReplid() string {
+	chars := []byte("0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+	result := make([]byte, 40)
+	for i := range result {
+		c := rand.Intn(len(chars))
+		result[i] = chars[c]
+	}
+	return string(result)
+}
+
+func (srv *serverState) replicaHandshake() {
+	masterConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", srv.config.replicaofHost, srv.config.replicaofPort))
 	if err != nil {
-		fmt.Println("Error connecting to master:", err)
-		return
+		fmt.Printf("Failed to connect to master %v\n", err)
+		os.Exit(1)
 	}
 
-	reader := bufio.NewReader(conn)
-
-	// Send the PING command to the master
-	pingCommand := "*1\r\n$4\r\nPING\r\n"
-	_, err = conn.Write([]byte(pingCommand))
-	if err != nil {
-		fmt.Println("Error sending PING command to master:", err)
-		return
-	}
-	fmt.Println("Sent PING command to master")
-
-	// Read the response from the master
+	// TODO: check responses
+	reader := bufio.NewReader(masterConn)
+	masterConn.Write([]byte(encodeStringArray([]string{"PING"})))
+	reader.ReadString('\n')
+	masterConn.Write([]byte(encodeStringArray([]string{"REPLCONF", "listening-port", strconv.Itoa(srv.config.port)})))
+	reader.ReadString('\n')
+	masterConn.Write([]byte(encodeStringArray([]string{"REPLCONF", "capa", "psync2"})))
+	reader.ReadString('\n')
+	masterConn.Write([]byte(encodeStringArray([]string{"PSYNC", "?", "-1"})))
 	reader.ReadString('\n')
 
-	// Send the REPLCONF command with listening-port
-	listeningPortCommand := "*3\r\n$8\r\nREPLCONF\r\n$14\r\nlistening-port\r\n$" + strconv.Itoa(len(strconv.Itoa(port))) + "\r\n" + strconv.Itoa(port) + "\r\n"
-	_, err = conn.Write([]byte(listeningPortCommand))
-	if err != nil {
-		fmt.Println("Error sending REPLCONF listening-port command to master:", err)
-		return
-	}
-	fmt.Println("Sent REPLCONF listening-port command to master")
-
-	// Read the response from the master
-	reader.ReadString('\n')
-
-	// Send the REPLCONF command with capa psync2
-	capaCommand := "*3\r\n$8\r\nREPLCONF\r\n$4\r\ncapa\r\n$6\r\npsync2\r\n"
-	_, err = conn.Write([]byte(capaCommand))
-	if err != nil {
-		fmt.Println("Error sending REPLCONF capa command to master:", err)
-		return
-	}
-	fmt.Println("Sent REPLCONF capa command to master")
-
-	// Read the response from the master
-	reader.ReadString('\n')
-
-	// Send the PSYNC command
-	psyncCommand := fmt.Sprintf("*3\r\n$5\r\nPSYNC\r\n$1\r\n%s\r\n$2\r\n%d\r\n", replicationId, replicationOffset)
-	_, err = conn.Write([]byte(psyncCommand))
-	if err != nil {
-		fmt.Println("Error sending PSYNC command to master:", err)
-		return
-	}
-	fmt.Println("Sent PSYNC command to master")
-
-	// Read the response from the master
-	reader.ReadString('\n')
-
-	// v := strings.Split(string(response[:n]), " ")
-	// replicationId = v[1]
-	// replicationOffset, err = strconv.Atoi(v[2])
-	// if err != nil {
-	// 	fmt.Println("Invalid replication offset from master:", err)
-	// 	return
-	// }
-
-	// fmt.Println("Updated master replication id and offset:", replicationId, replicationOffset)
-	// Read the response from the master
 	// receiving RDB (ignoring it for now)
 	response, _ := reader.ReadString('\n')
 	if response[0] != '$' {
@@ -101,53 +64,113 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 		fmt.Printf("Size mismatch - got: %d, want: %d\n", receivedSize, rdbSize)
 	}
 
-	go handlePropagation(conn)
+	go srv.handlePropagation(reader, masterConn)
 }
 
-// ReceiveRDBFile receives the RDB file from the master.
-func ReceiveRDBFile(conn net.Conn) error {
-	fmt.Println("Receiving RDB file from master")
+var emptyRDB = []byte("524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2")
 
-	reader := bufio.NewReader(conn)
-
-	// Read the length of the RDB file
-	lengthStr, err := reader.ReadString('\n')
-	if err != nil {
-		return err
-	}
-	lengthStr = strings.TrimSpace(lengthStr)
-	length, err := strconv.Atoi(lengthStr[1:])
-	if err != nil {
-		return err
-	}
-
-	// Read the RDB file contents
-	rdbData := make([]byte, length)
-	_, err = io.ReadFull(reader, rdbData)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("Received RDB file from master", string(rdbData))
-
-	return nil
+func sendFullResynch(conn net.Conn) int {
+	buffer := make([]byte, hex.DecodedLen(len(emptyRDB)))
+	// TODO: check for errors
+	hex.Decode(buffer, emptyRDB)
+	conn.Write([]byte(fmt.Sprintf("$%d\r\n", len(buffer))))
+	conn.Write(buffer)
+	return len(buffer)
 }
 
-func handlePropagation(conn net.Conn) {
-	fmt.Println("handling propagation")
-	reader := bufio.NewReader(conn)
-	for {
-		commands, err := ReadCommand(reader)
+func (srv *serverState) propagateToReplicas(cmd []string) {
+	if len(srv.replicas) == 0 {
+		return
+	}
+	fmt.Printf("Propagating = %q\n", cmd)
+	for i := 0; i < len(srv.replicas); i++ {
+		fmt.Printf("Replicating to: %s\n", srv.replicas[i].conn.RemoteAddr().String())
+		bytesWritten, err := srv.replicas[i].conn.Write([]byte(encodeStringArray(cmd)))
+		// remove stale replicas
 		if err != nil {
-			fmt.Println("Error reading command:", err)
-			return
-		}
-		for i := 0; i < len(commands); i++ {
-			cmd := commands[i]
-			switch strings.ToUpper(cmd) {
-			case "SET":
-				Set(i, commands)
+			fmt.Printf("Disconnected: %s\n", srv.replicas[i].conn.RemoteAddr().String())
+			if len(srv.replicas) > 0 {
+				// TODO: mutex?
+				last := len(srv.replicas) - 1
+				srv.replicas[i] = srv.replicas[last]
+				srv.replicas = srv.replicas[:last]
+				i--
 			}
 		}
+		srv.replicas[i].offset += bytesWritten
 	}
+}
+
+func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.Conn) {
+	defer masterConn.Close()
+
+	for {
+		cmd, cmdSize, err := decodeStringArray(reader)
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			fmt.Printf("Error decoding command from master: %v\n", err.Error())
+		}
+
+		if len(cmd) == 0 {
+			break
+		}
+
+		fmt.Printf("[from master] Command = %q\n", cmd)
+		response, _ := srv.handleCommand(cmd)
+
+		// REPLCONF ACK is the only response that a replica send back to master
+		if strings.ToUpper(cmd[0]) == "REPLCONF" {
+			_, err := masterConn.Write([]byte(response))
+			if err != nil {
+				fmt.Printf("Error responding to master: %v\n", err.Error())
+				break
+			}
+		}
+		srv.replicaOffset += cmdSize
+	}
+}
+
+func (srv *serverState) handleWait(count, timeout int) string {
+	getAckCmd := []byte(encodeStringArray([]string{"REPLCONF", "GETACK", "*"}))
+
+	acks := 0
+
+	for i := 0; i < len(srv.replicas); i++ {
+		if srv.replicas[i].offset > 0 {
+			bytesWritten, _ := srv.replicas[i].conn.Write(getAckCmd)
+			srv.replicas[i].offset += bytesWritten
+			go func(conn net.Conn) {
+				fmt.Println("waiting response from replica", conn.RemoteAddr().String())
+				buffer := make([]byte, 1024)
+				// TODO: Ignoring result, just "flushing" the response
+				_, err := conn.Read(buffer)
+				if err == nil {
+					fmt.Println("got response from replica", conn.RemoteAddr().String())
+				} else {
+					fmt.Println("error from replica", conn.RemoteAddr().String(), " => ", err.Error())
+				}
+				srv.ackReceived <- true
+			}(srv.replicas[i].conn)
+		} else {
+			acks++
+		}
+	}
+
+	timer := time.After(time.Duration(timeout) * time.Millisecond)
+
+outer:
+	for acks < count {
+		select {
+		case <-srv.ackReceived:
+			acks++
+			fmt.Println("acks =", acks)
+		case <-timer:
+			fmt.Println("timeout! acks =", acks)
+			break outer
+		}
+	}
+
+	return encodeInt(acks)
 }

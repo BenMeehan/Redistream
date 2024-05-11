@@ -2,150 +2,222 @@ package main
 
 import (
 	"bufio"
+	"flag"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
-// In-memory map to store the redis key-value pairs
-var KeyValuePairs = make(map[string]string)
-
-// Map to store expiry time for each key
-var KeyExpiryTime = make(map[string]int64)
-
-var port = 6379
-var isReplica bool
-var masterReplID string
-var masterReplOffset int
-var masterHost string
-var masterPort int
-
-var replicas = make([]net.Conn, 0)
-
-func sendResponse(conn net.Conn, response string) {
-	// err := WriteResponse(writer, response)
-	// if err != nil {
-	// 	fmt.Println("Error writing response:", err)
-	// }
-	if len(response) > 0 {
-		bytesSent, err := conn.Write([]byte(response))
-		if err != nil {
-			fmt.Printf("[#%d] Error writing response: %v\n", err.Error())
-		}
-		fmt.Printf("[#%d] Bytes sent: %d %q\n", bytesSent, response)
-	}
+type serverConfig struct {
+	port          int
+	role          string
+	replid        string
+	replOffset    int
+	replicaofHost string
+	replicaofPort int
+	dir           string
+	dbfilename    string
 }
 
-// handleConnection handles commands from a client connection.
-func handleConnection(conn net.Conn) {
-	defer conn.Close()
+// TODO: add some mutexes around these...
 
-	fmt.Println("Client connected from", conn.RemoteAddr())
-
-	reader := bufio.NewReader(conn)
-	// writer := bufio.NewWriter(conn)
-
-	for {
-		commands, err := ReadCommand(reader)
-		if err != nil {
-			fmt.Println("Error reading command:", err)
-			return
-		}
-
-		for i := 0; i < len(commands); i++ {
-			cmd := commands[i]
-			var response string
-			// var file []byte
-			switch strings.ToUpper(cmd) {
-			case "PING":
-				response = Ping()
-				sendResponse(conn, response)
-			case "ECHO":
-				response, i = Echo(i, commands)
-				sendResponse(conn, response)
-			case "SET":
-				response, i = Set(i, commands)
-				PropagateToReplicas(replicas, commands)
-				sendResponse(conn, response)
-			case "GET":
-				response, i = Get(i, commands)
-				sendResponse(conn, response)
-			case "INFO":
-				response, i = Info(i, commands)
-				sendResponse(conn, response)
-			case "REPLCONF":
-				response, i = HandleREPLCONF(i, commands)
-				sendResponse(conn, response)
-			case "PSYNC":
-				response, i = Psync(i)
-				sendResponse(conn, response)
-				SendEmptyRDBFile(conn)
-				// sendResponse(writer, string(file))
-				replicas = append(replicas, conn)
-			default:
-				response = "-ERR unknown command\r\n"
-				sendResponse(conn, response)
-			}
-		}
-	}
+type serverState struct {
+	store         map[string]string
+	ttl           map[string]time.Time
+	config        serverConfig
+	replicas      []replica
+	replicaOffset int
+	ackReceived   chan bool
 }
 
 func main() {
-	var err error
-	i := 1
-	args := os.Args
-	fmt.Println(args)
-	for i < len(args) {
-		switch args[i] {
-		case "--port":
-			port, err = strconv.Atoi(args[i+1])
-			if err != nil {
-				fmt.Println("Invalid port")
-				os.Exit(1)
-			}
-			i += 2
-		case "--replicaof":
-			isReplica = true
-			masterHost = args[i+1]
-			if len(masterHost) == 0 {
-				fmt.Println("Invalid master hostname")
-				os.Exit(1)
-			}
-			masterPort, err = strconv.Atoi(args[i+2])
-			if err != nil {
-				fmt.Println("Invalid master port")
-				os.Exit(1)
-			}
-			i += 3
+
+	var config serverConfig
+
+	flag.IntVar(&config.port, "port", 6379, "listen on specified port")
+	flag.StringVar(&config.replicaofHost, "replicaof", "", "start server in replica mode of given host and port")
+	flag.StringVar(&config.dir, "dir", "", "directory where RDB files are stored")
+	flag.StringVar(&config.dbfilename, "dbfilename", "", "name of the RDB file")
+	flag.Parse()
+
+	if len(config.replicaofHost) == 0 {
+		config.role = "master"
+		config.replid = randReplid()
+	} else {
+		config.role = "slave"
+		switch flag.NArg() {
+		case 0:
+			config.replicaofPort = 6379
+		case 1:
+			config.replicaofPort, _ = strconv.Atoi(flag.Arg(0))
 		default:
-			i++
+			flag.Usage()
 		}
 	}
 
-	masterReplID = "8371b4fb1155b71f4a04d3e1bc3e18c4a990aeeb"
-	masterReplOffset = 0
+	srv := newServer(config)
 
-	l, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", port))
+	srv.start()
+}
+
+func newServer(config serverConfig) *serverState {
+	var srv serverState
+	srv.store = make(map[string]string)
+	srv.ttl = make(map[string]time.Time)
+	srv.ackReceived = make(chan bool)
+	srv.config = config
+	return &srv
+}
+
+func (srv *serverState) start() {
+	if srv.config.role == "slave" {
+		srv.replicaHandshake()
+	}
+
+	listener, err := net.Listen("tcp", fmt.Sprintf("0.0.0.0:%d", srv.config.port))
 	if err != nil {
-		fmt.Println("Failed to bind to port", port, ":", err)
+		fmt.Printf("Failed to bind to port %d\n", srv.config.port)
 		os.Exit(1)
 	}
-	defer l.Close()
+	fmt.Println("Listening on: ", listener.Addr().String())
 
-	fmt.Println("Server listening on port", port)
-
-	if isReplica {
-		ConnectToMasterHandshake(masterHost, masterPort)
+	for id := 1; ; id++ {
+		conn, err := listener.Accept()
+		if err != nil {
+			fmt.Println("Error accepting connection: ", err.Error())
+			os.Exit(1)
+		}
+		go srv.serveClient(id, conn)
 	}
+}
+
+func (srv *serverState) serveClient(id int, conn net.Conn) {
+	fmt.Printf("[#%d] Client connected: %v\n", id, conn.RemoteAddr().String())
+
+	//scanner := bufio.NewScanner(conn)
+	reader := bufio.NewReader(conn)
 
 	for {
-		conn, err := l.Accept()
+		cmd, _, err := decodeStringArray(reader)
 		if err != nil {
-			fmt.Println("Error accepting connection:", err)
-			continue
+			if err == io.EOF {
+				break
+			}
+			fmt.Printf("[%d] Error decoding command: %v\n", id, err.Error())
 		}
-		go handleConnection(conn) // Handle each client connection concurrently
+
+		if len(cmd) == 0 {
+			break
+		}
+
+		fmt.Printf("[#%d] Command = %q\n", id, cmd)
+		response, resynch := srv.handleCommand(cmd)
+
+		if len(response) > 0 {
+			bytesSent, err := conn.Write([]byte(response))
+			if err != nil {
+				fmt.Printf("[#%d] Error writing response: %v\n", id, err.Error())
+				break
+			}
+			fmt.Printf("[#%d] Bytes sent: %d %q\n", id, bytesSent, response)
+		}
+
+		if resynch {
+			size := sendFullResynch(conn)
+			fmt.Printf("[#%d] full resynch sent: %d\n", id, size)
+			srv.replicas = append(srv.replicas, replica{conn, 0, 0})
+			fmt.Printf("[#%d] Client promoted to replica\n", id)
+			return
+		}
 	}
+
+	fmt.Printf("[#%d] Client closing\n", id)
+	conn.Close()
+}
+
+func (srv *serverState) handleCommand(cmd []string) (response string, resynch bool) {
+	isWrite := false
+
+	switch strings.ToUpper(cmd[0]) {
+	case "COMMAND":
+		response = "+OK\r\n"
+
+	case "PING":
+		response = "+PONG\r\n"
+
+	case "ECHO":
+		response = encodeBulkString(cmd[1])
+
+	case "INFO":
+		if len(cmd) == 2 && strings.ToUpper(cmd[1]) == "REPLICATION" {
+			response = encodeBulkString(fmt.Sprintf("role:%s\r\nmaster_replid:%s\r\nmaster_repl_offset:%d",
+				srv.config.role, srv.config.replid, srv.config.replOffset))
+		}
+
+	case "CONFIG":
+		switch cmd[2] {
+		case "dir":
+			response = encodeStringArray([]string{"dir", srv.config.dir})
+		case "dbfilename":
+			response = encodeStringArray([]string{"dbfilename", srv.config.dbfilename})
+		}
+
+	case "SET":
+		isWrite = true
+		// TODO: check length
+		key, value := cmd[1], cmd[2]
+		srv.store[key] = value
+		if len(cmd) == 5 && strings.ToUpper(cmd[3]) == "PX" {
+			expiration, _ := strconv.Atoi(cmd[4])
+			srv.ttl[key] = time.Now().Add(time.Millisecond * time.Duration(expiration))
+		}
+		response = "+OK\r\n"
+
+	case "GET":
+		// TODO: check length
+		key := cmd[1]
+		value, ok := srv.store[key]
+		if ok {
+			expiration, exists := srv.ttl[key]
+			if !exists || expiration.After(time.Now()) {
+				response = encodeBulkString(value)
+			} else if exists {
+				delete(srv.ttl, key)
+				delete(srv.store, key)
+				response = encodeBulkString("")
+			}
+		} else {
+			response = encodeBulkString("")
+		}
+
+	case "REPLCONF":
+		switch strings.ToUpper(cmd[1]) {
+		case "GETACK":
+			response = encodeStringArray([]string{"REPLCONF", "ACK", strconv.Itoa(srv.replicaOffset)})
+		case "ACK":
+			srv.ackReceived <- true
+			response = ""
+		default:
+			// TODO: Implement proper replication
+			response = "+OK\r\n"
+		}
+
+	case "PSYNC":
+		if len(cmd) == 3 {
+			// TODO: Implement synch
+			response = fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.config.replid)
+			resynch = true
+		}
+
+	}
+
+	if isWrite {
+		srv.propagateToReplicas(cmd)
+	}
+
+	return
 }

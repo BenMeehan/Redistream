@@ -7,54 +7,68 @@ import (
 	"strings"
 )
 
-func EmptyResponse() string {
-	return fmt.Sprintf("$%d\r\n", -1)
+func encodeBulkString(s string) string {
+	if len(s) == 0 {
+		return "$-1\r\n"
+	}
+	return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s)
 }
 
-// readCommand reads and parses a Redis command from the client connection.
-func ReadCommand(reader *bufio.Reader) ([]string, error) {
-	line, err := reader.ReadString('\n')
-	if err != nil {
-		return nil, err
-	}
-	length, err := strconv.Atoi(strings.TrimSpace(line[1:]))
-	if err != nil {
-		return nil, err
-	}
-
-	commands := make([]string, 0)
-
-	for i := 0; i < length; i++ {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-		elementLength, err := strconv.Atoi(strings.TrimSpace(line[1:]))
-		if err != nil {
-			return nil, err
-		}
-
-		element := make([]byte, elementLength)
-		_, err = reader.Read(element)
-		if err != nil {
-			return nil, err
-		}
-		commands = append(commands, string(element))
-
-		_, err = reader.ReadString('\n')
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return commands, nil
+func encodeSimpleString(s string) string {
+	return fmt.Sprintf("+%s\r\n", s)
 }
 
-// writeResponse writes a response to the client connection.
-func WriteResponse(writer *bufio.Writer, response string) error {
-	_, err := writer.WriteString(response)
-	if err != nil {
-		return err
+func encodeStringArray(arr []string) string {
+	result := fmt.Sprintf("*%d\r\n", len(arr))
+	for _, s := range arr {
+		result += encodeBulkString(s)
 	}
-	return writer.Flush()
+	return result
+}
+
+func encodeInt(n int) string {
+	return fmt.Sprintf(":%d\r\n", n)
+}
+
+func encodeError(e error) string {
+	return fmt.Sprintf("-ERR %s\r\n", e.Error())
+}
+
+func decodeStringArray(reader *bufio.Reader) (arr []string, bytesRead int, err error) {
+	var arrSize, strSize int
+	for {
+		var token string
+		token, err = reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		// HACK: should count bytes properly?
+		bytesRead += len(token)
+		token = strings.TrimRight(token, "\r\n")
+		// TODO: do proper RESP parsing!!!
+		switch {
+		case arrSize == 0 && token[0] == '*':
+			arrSize, err = strconv.Atoi(token[1:])
+			if err != nil {
+				return
+			}
+		case strSize == 0 && token[0] == '$':
+			strSize, err = strconv.Atoi(token[1:])
+			if err != nil {
+				return
+			}
+		default:
+			if len(token) != strSize {
+				fmt.Printf("[from master] Wrong string size - got: %d, want: %d\n", len(token), strSize)
+				break
+			}
+			arrSize--
+			strSize = 0
+			arr = append(arr, token)
+		}
+		if arrSize == 0 {
+			break
+		}
+	}
+	return
 }
