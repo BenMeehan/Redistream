@@ -106,11 +106,7 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 	// Check if the response indicates a full resynchronization
 	fullResyncPrefix := "+FULLRESYNC "
 	if strings.HasPrefix(string(response[:n]), fullResyncPrefix) {
-		err := ReceiveRDBFile(conn)
-		if err != nil {
-			fmt.Println("Error receiving RDB file:", err)
-			return
-		}
+		go ReceiveRDBFile(conn)
 	}
 
 }
