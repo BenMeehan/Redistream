@@ -13,17 +13,13 @@ import (
 )
 
 type serverConfig struct {
-	port          int
-	role          string
-	replid        string
-	replOffset    int
-	replicaofHost string
-	replicaofPort int
-	dir           string
-	dbfilename    string
+	port       int
+	role       string
+	replid     string
+	replOffset int
+	masterHost string
+	masterPort int
 }
-
-// TODO: add some mutexes around these...
 
 type serverState struct {
 	store         map[string]string
@@ -31,7 +27,6 @@ type serverState struct {
 	config        serverConfig
 	replicas      []replica
 	replicaOffset int
-	ackReceived   chan bool
 }
 
 func main() {
@@ -39,21 +34,19 @@ func main() {
 	var config serverConfig
 
 	flag.IntVar(&config.port, "port", 6379, "listen on specified port")
-	flag.StringVar(&config.replicaofHost, "replicaof", "", "start server in replica mode of given host and port")
-	flag.StringVar(&config.dir, "dir", "", "directory where RDB files are stored")
-	flag.StringVar(&config.dbfilename, "dbfilename", "", "name of the RDB file")
+	flag.StringVar(&config.masterHost, "replicaof", "", "start server in replica mode of given host and port")
 	flag.Parse()
 
-	if len(config.replicaofHost) == 0 {
+	if len(config.masterHost) == 0 {
 		config.role = "master"
 		config.replid = randReplid()
 	} else {
 		config.role = "slave"
 		switch flag.NArg() {
 		case 0:
-			config.replicaofPort = 6379
+			config.masterPort = 6379
 		case 1:
-			config.replicaofPort, _ = strconv.Atoi(flag.Arg(0))
+			config.masterPort, _ = strconv.Atoi(flag.Arg(0))
 		default:
 			flag.Usage()
 		}
@@ -68,7 +61,6 @@ func newServer(config serverConfig) *serverState {
 	var srv serverState
 	srv.store = make(map[string]string)
 	srv.ttl = make(map[string]time.Time)
-	srv.ackReceived = make(chan bool)
 	srv.config = config
 	return &srv
 }
@@ -98,7 +90,6 @@ func (srv *serverState) start() {
 func (srv *serverState) serveClient(id int, conn net.Conn) {
 	fmt.Printf("[#%d] Client connected: %v\n", id, conn.RemoteAddr().String())
 
-	//scanner := bufio.NewScanner(conn)
 	reader := bufio.NewReader(conn)
 
 	for {
@@ -129,7 +120,7 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 		if resynch {
 			size := sendFullResynch(conn)
 			fmt.Printf("[#%d] full resynch sent: %d\n", id, size)
-			srv.replicas = append(srv.replicas, replica{conn, 0, 0})
+			srv.replicas = append(srv.replicas, replica{conn, 0})
 			fmt.Printf("[#%d] Client promoted to replica\n", id)
 			return
 		}
@@ -158,17 +149,8 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 				srv.config.role, srv.config.replid, srv.config.replOffset))
 		}
 
-	case "CONFIG":
-		switch cmd[2] {
-		case "dir":
-			response = encodeStringArray([]string{"dir", srv.config.dir})
-		case "dbfilename":
-			response = encodeStringArray([]string{"dbfilename", srv.config.dbfilename})
-		}
-
 	case "SET":
 		isWrite = true
-		// TODO: check length
 		key, value := cmd[1], cmd[2]
 		srv.store[key] = value
 		if len(cmd) == 5 && strings.ToUpper(cmd[3]) == "PX" {
@@ -178,7 +160,6 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 		response = "+OK\r\n"
 
 	case "GET":
-		// TODO: check length
 		key := cmd[1]
 		value, ok := srv.store[key]
 		if ok {
@@ -196,19 +177,12 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 
 	case "REPLCONF":
 		switch strings.ToUpper(cmd[1]) {
-		case "GETACK":
-			response = encodeStringArray([]string{"REPLCONF", "ACK", strconv.Itoa(srv.replicaOffset)})
-		case "ACK":
-			srv.ackReceived <- true
-			response = ""
 		default:
-			// TODO: Implement proper replication
 			response = "+OK\r\n"
 		}
 
 	case "PSYNC":
 		if len(cmd) == 3 {
-			// TODO: Implement synch
 			response = fmt.Sprintf("+FULLRESYNC %s 0\r\n", srv.config.replid)
 			resynch = true
 		}

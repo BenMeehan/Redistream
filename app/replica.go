@@ -13,9 +13,8 @@ import (
 )
 
 type replica struct {
-	conn      net.Conn
-	offset    int
-	ackOffset int // TODO: keep track of this also
+	conn   net.Conn
+	offset int
 }
 
 func randReplid() string {
@@ -29,13 +28,12 @@ func randReplid() string {
 }
 
 func (srv *serverState) replicaHandshake() {
-	masterConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", srv.config.replicaofHost, srv.config.replicaofPort))
+	masterConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", srv.config.masterHost, srv.config.masterPort))
 	if err != nil {
 		fmt.Printf("Failed to connect to master %v\n", err)
 		os.Exit(1)
 	}
 
-	// TODO: check responses
 	reader := bufio.NewReader(masterConn)
 	masterConn.Write([]byte(encodeStringArray([]string{"PING"})))
 	reader.ReadString('\n')
@@ -46,7 +44,6 @@ func (srv *serverState) replicaHandshake() {
 	masterConn.Write([]byte(encodeStringArray([]string{"PSYNC", "?", "-1"})))
 	reader.ReadString('\n')
 
-	// receiving RDB (ignoring it for now)
 	response, _ := reader.ReadString('\n')
 	if response[0] != '$' {
 		fmt.Printf("Invalid response\n")
@@ -70,7 +67,6 @@ var emptyRDB = []byte("524544495330303131fa0972656469732d76657205372e322e30fa0a7
 
 func sendFullResynch(conn net.Conn) int {
 	buffer := make([]byte, hex.DecodedLen(len(emptyRDB)))
-	// TODO: check for errors
 	hex.Decode(buffer, emptyRDB)
 	conn.Write([]byte(fmt.Sprintf("$%d\r\n", len(buffer))))
 	conn.Write(buffer)
@@ -89,7 +85,6 @@ func (srv *serverState) propagateToReplicas(cmd []string) {
 		if err != nil {
 			fmt.Printf("Disconnected: %s\n", srv.replicas[i].conn.RemoteAddr().String())
 			if len(srv.replicas) > 0 {
-				// TODO: mutex?
 				last := len(srv.replicas) - 1
 				srv.replicas[i] = srv.replicas[last]
 				srv.replicas = srv.replicas[:last]
@@ -119,7 +114,6 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 		fmt.Printf("[from master] Command = %q\n", cmd)
 		response, _ := srv.handleCommand(cmd)
 
-		// REPLCONF ACK is the only response that a replica send back to master
 		if strings.ToUpper(cmd[0]) == "REPLCONF" {
 			_, err := masterConn.Write([]byte(response))
 			if err != nil {

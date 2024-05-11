@@ -30,10 +30,8 @@ func decodeStringArray(reader *bufio.Reader) (arr []string, bytesRead int, err e
 		if err != nil {
 			return
 		}
-		// HACK: should count bytes properly?
 		bytesRead += len(token)
 		token = strings.TrimRight(token, "\r\n")
-		// TODO: do proper RESP parsing!!!
 		switch {
 		case arrSize == 0 && token[0] == '*':
 			arrSize, err = strconv.Atoi(token[1:])
