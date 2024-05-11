@@ -51,7 +51,7 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				PropagateToReplicas(replicas, commands)
+				go PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
 			case "INFO":
