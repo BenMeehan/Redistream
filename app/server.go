@@ -133,7 +133,7 @@ func main() {
 	fmt.Println("Server listening on port", port)
 
 	if isReplica {
-		ConnectToMasterHandshake(masterHost, masterPort)
+		go ConnectToMasterHandshake(masterHost, masterPort)
 	}
 
 	for {
