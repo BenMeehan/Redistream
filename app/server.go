@@ -75,7 +75,7 @@ func handleConnection(conn net.Conn) {
 				}
 			}
 
-			if !isReplica && len(file) > 0 {
+			if len(file) > 0 {
 				err := WriteResponse(writer, string(file))
 				if err != nil {
 					fmt.Println("Error writing file:", err)
