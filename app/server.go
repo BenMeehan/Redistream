@@ -22,6 +22,8 @@ var masterReplOffset int
 var masterHost string
 var masterPort int
 
+var replicas = make([]net.Conn, 0)
+
 // handleConnection handles commands from a client connection.
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
@@ -50,7 +52,10 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				go WriteResponse(writer, original)
+				for _, r := range replicas {
+					replWriter := bufio.NewWriter(r)
+					go WriteResponse(replWriter, original)
+				}
 			case "GET":
 				response, i = Get(i, commands)
 			case "INFO":
@@ -60,6 +65,7 @@ func handleConnection(conn net.Conn) {
 			case "PSYNC":
 				response, i = Psync(i)
 				file = SendEmptyRDBFile(conn)
+				replicas = append(replicas, conn)
 			default:
 				response = "-ERR unknown command\r\n"
 			}
