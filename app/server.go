@@ -48,58 +48,29 @@ func handleConnection(conn net.Conn) {
 			switch strings.ToUpper(cmd) {
 			case "PING":
 				response = Ping()
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
 			case "ECHO":
 				response, i = Echo(i, commands)
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
 			case "SET":
 				response, i = Set(i, commands)
 				PropagateToReplicas(replicas, commands)
 			case "GET":
 				response, i = Get(i, commands)
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
 			case "INFO":
 				response, i = Info(i, commands)
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
 			case "REPLCONF":
 				response, i = HandleREPLCONF(i, commands)
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
 			case "PSYNC":
 				response, i = Psync(i)
 				file = SendEmptyRDBFile(conn)
 				replicas = append(replicas, conn)
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
 			default:
 				response = "-ERR unknown command\r\n"
-				err := WriteResponse(writer, response)
-				if err != nil {
-					fmt.Println("Error writing response:", err)
-					return
-				}
+			}
+
+			err := WriteResponse(writer, response)
+			if err != nil {
+				fmt.Println("Error writing response:", err)
+				return
 			}
 
 			if len(file) > 0 {
