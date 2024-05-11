@@ -1,9 +1,12 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
+	"io"
 	"net"
 	"strconv"
+	"strings"
 )
 
 var replicaPort = 6379
@@ -89,4 +92,54 @@ func ConnectToMasterHandshake(masterHost string, masterPort int) {
 		return
 	}
 	fmt.Println("Received response from master:", string(response[:n]))
+
+	v := strings.Split(string(response[:n]), " ")
+	replicationId = v[1]
+	replicationOffset, err = strconv.Atoi(v[2])
+	if err != nil {
+		fmt.Println("Invalid replication offset from master:", err)
+		return
+	}
+
+	fmt.Println("Updated master replication id and offset:", replicationId, replicationOffset)
+
+	// Check if the response indicates a full resynchronization
+	fullResyncPrefix := "+FULLRESYNC "
+	if strings.HasPrefix(string(response[:n]), fullResyncPrefix) {
+		err := ReceiveRDBFile(conn)
+		if err != nil {
+			fmt.Println("Error receiving RDB file:", err)
+			return
+		}
+	}
+
+}
+
+// ReceiveRDBFile receives the RDB file from the master.
+func ReceiveRDBFile(conn net.Conn) error {
+	fmt.Println("Receiving RDB file from master")
+
+	reader := bufio.NewReader(conn)
+
+	// Read the length of the RDB file
+	lengthStr, err := reader.ReadString('\n')
+	if err != nil {
+		return err
+	}
+	lengthStr = strings.TrimSpace(lengthStr)
+	length, err := strconv.Atoi(lengthStr[1:])
+	if err != nil {
+		return err
+	}
+
+	// Read the RDB file contents
+	rdbData := make([]byte, length)
+	_, err = io.ReadFull(reader, rdbData)
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Received RDB file from master")
+
+	return nil
 }
