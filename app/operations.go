@@ -171,7 +171,10 @@ func PropagateToReplicas(replConnections []net.Conn, commands []string) {
 	}
 	for _, r := range replicas {
 		replWriter := bufio.NewWriter(r)
-		WriteResponse(replWriter, command)
+		err := WriteResponse(replWriter, command)
+		if err != nil {
+			fmt.Println("Error propagating to replica", err)
+		}
 		fmt.Println("Sent command", command, "to replica", r.RemoteAddr())
 	}
 }
