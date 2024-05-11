@@ -170,7 +170,7 @@ func PropagateToReplicas(replConnections []net.Conn, commands []string) {
 		command = fmt.Sprintf("%s$%d\r\n%s\r\n", command, len(c), c)
 	}
 	for _, r := range replicas {
-		replWriter := bufio.NewWriter(r)
+		replWriter := bufio.NewWriterSize(r, 9000)
 		go WriteResponse(replWriter, command)
 	}
 }
