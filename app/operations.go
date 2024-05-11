@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/hex"
 	"fmt"
 	"net"
@@ -161,4 +162,11 @@ func SendEmptyRDBFile(conn net.Conn) []byte {
 	lengthPrefix := fmt.Sprintf("$%d\r\n", rdbLength)
 	data = append([]byte(lengthPrefix), emptyRDBBytes...)
 	return data
+}
+
+func PropagateToReplicas(replConnections []net.Conn, command string) {
+	for _, r := range replicas {
+		replWriter := bufio.NewWriter(r)
+		go WriteResponse(replWriter, command)
+	}
 }

@@ -52,11 +52,7 @@ func handleConnection(conn net.Conn) {
 				response, i = Echo(i, commands)
 			case "SET":
 				response, i = Set(i, commands)
-				for _, r := range replicas {
-					replWriter := bufio.NewWriter(r)
-					fmt.Println(original)
-					go WriteResponse(replWriter, original)
-				}
+				PropagateToReplicas(replicas, original)
 			case "GET":
 				response, i = Get(i, commands)
 			case "INFO":
