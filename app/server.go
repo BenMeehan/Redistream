@@ -187,7 +187,7 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 
 	case "WAIT":
 		if len(cmd) == 3 {
-			response = fmt.Sprintf("0\r\n", srv.config.replid)
+			response = encodeBulkString(fmt.Sprint(0))
 		}
 
 	}
