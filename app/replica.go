@@ -140,7 +140,7 @@ func (srv *serverState) requestAcknowledgement() {
 }
 
 func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
-	timer := time.After(time.Duration(t) * time.Millisecond)
+	timer := time.After(time.Duration(t) * time.Second)
 	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
 	noOfAcks := 0
 
