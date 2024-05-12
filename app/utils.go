@@ -14,6 +14,10 @@ func encodeBulkString(s string) string {
 	return fmt.Sprintf("$%d\r\n%s\r\n", len(s), s)
 }
 
+func encodeInteger(s int) string {
+	return fmt.Sprintf(":%d\r\n", s)
+}
+
 func encodeStringArray(arr []string) string {
 	result := fmt.Sprintf("*%d\r\n", len(arr))
 	for _, s := range arr {
