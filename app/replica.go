@@ -63,7 +63,7 @@ func (srv *serverState) replicaHandshake() {
 
 	go srv.handlePropagation(reader, masterConn)
 
-	srv.requestAcknowledgement()
+	// srv.requestAcknowledgement()
 }
 
 var emptyRDB = []byte("524544495330303131fa0972656469732d76657205372e322e30fa0a72656469732d62697473c040fa056374696d65c26d08bc65fa08757365642d6d656dc2b0c41000fa08616f662d62617365c000fff06e3bfec0ff5aa2")
@@ -139,45 +139,35 @@ func (srv *serverState) requestAcknowledgement() {
 	}
 }
 
-func (srv *serverState) waitForWriteAck(count, timeout int) string {
-	getAckCmd := []byte(encodeStringArray([]string{"REPLCONF", "GETACK", "*"}))
+func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
+	timer := time.After(time.Duration(t) * time.Millisecond)
+	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
+	noOfAcks := 0
 
-	acks := 0
+	for _, r := range srv.replicas {
+		if r.offset > 0 {
+			bytesWritten, _ := r.conn.Write([]byte(cmd))
+			r.offset += bytesWritten
 
-	for i := 0; i < len(srv.replicas); i++ {
-		if srv.replicas[i].offset > 0 {
-			bytesWritten, _ := srv.replicas[i].conn.Write(getAckCmd)
-			srv.replicas[i].offset += bytesWritten
 			go func(conn net.Conn) {
-				fmt.Println("waiting response from replica", conn.RemoteAddr().String())
-				buffer := make([]byte, 1024)
-				// TODO: Ignoring result, just "flushing" the response
-				_, err := conn.Read(buffer)
-				if err == nil {
-					fmt.Println("got response from replica", conn.RemoteAddr().String())
-				} else {
-					fmt.Println("error from replica", conn.RemoteAddr().String(), " => ", err.Error())
-				}
+				reader := bufio.NewReader(conn)
+				_, _, _ = decodeStringArray(reader)
 				srv.ackReceived <- true
-			}(srv.replicas[i].conn)
+			}(r.conn)
 		} else {
-			acks++
+			noOfAcks++
 		}
 	}
 
-	timer := time.After(time.Duration(timeout) * time.Millisecond)
-
 outer:
-	for acks < count {
+	for noOfAcks < minReplicas {
 		select {
 		case <-srv.ackReceived:
-			acks++
-			fmt.Println("acks =", acks)
+			noOfAcks++
 		case <-timer:
-			fmt.Println("timeout! acks =", acks)
 			break outer
 		}
 	}
 
-	return encodeInteger(acks)
+	return encodeInteger(noOfAcks)
 }
