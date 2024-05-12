@@ -62,6 +62,7 @@ func newServer(config serverConfig) *serverState {
 	var srv serverState
 	srv.store = make(map[string]string)
 	srv.ttl = make(map[string]time.Time)
+	srv.ackReceived = make(chan bool)
 	srv.config = config
 	return &srv
 }
