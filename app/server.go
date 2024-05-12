@@ -173,6 +173,8 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 
 	case "REPLCONF":
 		switch strings.ToUpper(cmd[1]) {
+		case "GETACK":
+			response = encodeStringArray([]string{"REPLCONF", "ACK", fmt.Sprint(srv.replicaOffset)})
 		default:
 			response = "+OK\r\n"
 		}
