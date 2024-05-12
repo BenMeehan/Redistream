@@ -139,35 +139,45 @@ func (srv *serverState) requestAcknowledgement() {
 	}
 }
 
-func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
-	timer := time.After(time.Duration(t) * time.Millisecond)
-	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
-	noOfAcks := 0
+func (srv *serverState) waitForWriteAck(count, timeout int) string {
+	getAckCmd := []byte(encodeStringArray([]string{"REPLCONF", "GETACK", "*"}))
 
-	for _, r := range srv.replicas {
-		if r.offset > 0 {
-			bytesWritten, _ := r.conn.Write([]byte(cmd))
-			r.offset += bytesWritten
+	acks := 0
 
+	for i := 0; i < len(srv.replicas); i++ {
+		if srv.replicas[i].offset > 0 {
+			bytesWritten, _ := srv.replicas[i].conn.Write(getAckCmd)
+			srv.replicas[i].offset += bytesWritten
 			go func(conn net.Conn) {
-				reader := bufio.NewReader(conn)
-				_, _, _ = decodeStringArray(reader)
+				fmt.Println("waiting response from replica", conn.RemoteAddr().String())
+				buffer := make([]byte, 1024)
+				// TODO: Ignoring result, just "flushing" the response
+				_, err := conn.Read(buffer)
+				if err == nil {
+					fmt.Println("got response from replica", conn.RemoteAddr().String())
+				} else {
+					fmt.Println("error from replica", conn.RemoteAddr().String(), " => ", err.Error())
+				}
 				srv.ackReceived <- true
-			}(r.conn)
+			}(srv.replicas[i].conn)
 		} else {
-			noOfAcks++
+			acks++
 		}
 	}
 
+	timer := time.After(time.Duration(timeout) * time.Millisecond)
+
 outer:
-	for noOfAcks < minReplicas {
+	for acks < count {
 		select {
 		case <-srv.ackReceived:
-			noOfAcks++
+			acks++
+			fmt.Println("acks =", acks)
 		case <-timer:
+			fmt.Println("timeout! acks =", acks)
 			break outer
 		}
 	}
 
-	return encodeInteger(noOfAcks)
+	return encodeInteger(acks)
 }
