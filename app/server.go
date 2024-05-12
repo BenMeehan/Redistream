@@ -122,7 +122,7 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 		if resynch {
 			size := sendFullResynch(conn)
 			fmt.Printf("[#%d] full resynch sent: %d\n", id, size)
-			srv.replicas = append(srv.replicas, replica{conn, 0})
+			srv.replicas = append(srv.replicas, replica{conn, 0, 0})
 			fmt.Printf("[#%d] Client promoted to replica\n", id)
 			return
 		}
