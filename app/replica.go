@@ -155,7 +155,7 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 				reader := bufio.NewReader(conn)
 				_, _, err = decodeStringArray(reader)
 				if err != nil {
-					fmt.Println("error from replica read", r.conn.RemoteAddr().String(), " => ", err.Error())
+					fmt.Println("error from replica read", conn.RemoteAddr().String(), " => ", err.Error())
 				}
 				srv.ackReceived <- true
 			}(r.conn)
