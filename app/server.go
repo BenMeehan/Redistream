@@ -92,10 +92,11 @@ func (srv *serverState) start() {
 func (srv *serverState) serveClient(id int, conn net.Conn) {
 	fmt.Printf("[#%d] Client connected: %v\n", id, conn.RemoteAddr().String())
 
+	//scanner := bufio.NewScanner(conn)
 	reader := bufio.NewReader(conn)
 
 	for {
-		cmd, cmdSize, err := decodeStringArray(reader)
+		cmd, _, err := decodeStringArray(reader)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -108,7 +109,7 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 		}
 
 		fmt.Printf("[#%d] Command = %q\n", id, cmd)
-		response, resynch := srv.handleCommand(cmd, cmdSize)
+		response, resynch := srv.handleCommand(cmd)
 
 		if len(response) > 0 {
 			bytesSent, err := conn.Write([]byte(response))
@@ -132,9 +133,11 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 	conn.Close()
 }
 
-func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response string, resynch bool) {
+func (srv *serverState) handleCommand(cmd []string) (response string, resynch bool) {
+	isWrite := false
 
 	switch strings.ToUpper(cmd[0]) {
+
 	case "PING":
 		response = "+PONG\r\n"
 
@@ -148,6 +151,7 @@ func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response strin
 		}
 
 	case "SET":
+		isWrite = true
 		key, value := cmd[1], cmd[2]
 		srv.store[key] = value
 		if len(cmd) == 5 && strings.ToUpper(cmd[3]) == "PX" {
@@ -155,8 +159,6 @@ func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response strin
 			srv.ttl[key] = time.Now().Add(time.Millisecond * time.Duration(expiration))
 		}
 		response = "+OK\r\n"
-		srv.config.replOffset += cmdSize
-		srv.propagateToReplicas(cmd)
 
 	case "GET":
 		key := cmd[1]
@@ -177,7 +179,10 @@ func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response strin
 	case "REPLCONF":
 		switch strings.ToUpper(cmd[1]) {
 		case "GETACK":
-			response = encodeStringArray([]string{"REPLCONF", "ACK", fmt.Sprint(srv.replicaOffset)})
+			response = encodeStringArray([]string{"REPLCONF", "ACK", strconv.Itoa(srv.replicaOffset)})
+		case "ACK":
+			srv.ackReceived <- true
+			response = ""
 		default:
 			response = "+OK\r\n"
 		}
@@ -189,11 +194,13 @@ func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response strin
 		}
 
 	case "WAIT":
-		if len(cmd) == 3 {
-			minReplicas, _ := strconv.Atoi(cmd[0])
-			time, _ := strconv.Atoi(cmd[1])
-			response = srv.waitForWriteAck(minReplicas, time)
-		}
+		count, _ := strconv.Atoi(cmd[1])
+		timeout, _ := strconv.Atoi(cmd[2])
+		response = srv.waitForWriteAck(count, timeout)
+	}
+
+	if isWrite {
+		srv.propagateToReplicas(cmd)
 	}
 
 	return

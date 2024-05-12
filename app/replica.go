@@ -118,7 +118,7 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 		}
 
 		fmt.Printf("[from master] Command = %q\n", cmd)
-		response, _ := srv.handleCommand(cmd, cmdSize)
+		response, _ := srv.handleCommand(cmd)
 
 		// REPLCONF ACK is the only response that a replica send back to master
 		if strings.ToUpper(cmd[0]) == "REPLCONF" {
