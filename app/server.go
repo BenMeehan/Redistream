@@ -192,7 +192,7 @@ func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response strin
 		if len(cmd) == 3 {
 			minReplicas, _ := strconv.Atoi(cmd[0])
 			time, _ := strconv.Atoi(cmd[1])
-			srv.waitForWriteAck(minReplicas, time)
+			response = srv.waitForWriteAck(minReplicas, time)
 		}
 	}
 
