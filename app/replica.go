@@ -142,18 +142,17 @@ func (srv *serverState) requestAcknowledgement() {
 func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 	timer := time.After(time.Duration(t) * time.Millisecond)
 	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
-	noOfAcks := 1
+	noOfAcks := 0
 
 	for _, r := range srv.replicas {
 		if r.offset > 0 {
 			bytesWritten, _ := r.conn.Write([]byte(cmd))
 			r.offset += bytesWritten
-			noOfAcks++
-			// go func(conn net.Conn) {
-			// 	reader := bufio.NewReader(conn)
-			// 	_, _, _ = decodeStringArray(reader)
-			// 	srv.ackReceived <- true
-			// }(r.conn)
+			go func(conn net.Conn) {
+				reader := bufio.NewReader(conn)
+				_, _, _ = decodeStringArray(reader)
+				srv.ackReceived <- true
+			}(r.conn)
 		} else {
 			noOfAcks++
 		}
@@ -170,5 +169,5 @@ outer:
 		}
 	}
 
-	return encodeInteger(minReplicas)
+	return encodeInteger(noOfAcks)
 }
