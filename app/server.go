@@ -27,6 +27,7 @@ type serverState struct {
 	config        serverConfig
 	replicas      []replica
 	replicaOffset int
+	ackReceived   chan int
 }
 
 func main() {
@@ -93,7 +94,7 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 	reader := bufio.NewReader(conn)
 
 	for {
-		cmd, _, err := decodeStringArray(reader)
+		cmd, cmdSize, err := decodeStringArray(reader)
 		if err != nil {
 			if err == io.EOF {
 				break
@@ -106,7 +107,7 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 		}
 
 		fmt.Printf("[#%d] Command = %q\n", id, cmd)
-		response, resynch := srv.handleCommand(cmd)
+		response, resynch := srv.handleCommand(cmd, cmdSize)
 
 		if len(response) > 0 {
 			bytesSent, err := conn.Write([]byte(response))
@@ -130,7 +131,7 @@ func (srv *serverState) serveClient(id int, conn net.Conn) {
 	conn.Close()
 }
 
-func (srv *serverState) handleCommand(cmd []string) (response string, resynch bool) {
+func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response string, resynch bool) {
 
 	switch strings.ToUpper(cmd[0]) {
 	case "PING":
@@ -153,6 +154,7 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 			srv.ttl[key] = time.Now().Add(time.Millisecond * time.Duration(expiration))
 		}
 		response = "+OK\r\n"
+		srv.config.replOffset += cmdSize
 		srv.propagateToReplicas(cmd)
 
 	case "GET":
@@ -187,9 +189,10 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 
 	case "WAIT":
 		if len(cmd) == 3 {
-			response = encodeInteger(len(srv.replicas))
+			minReplicas, _ := strconv.Atoi(cmd[0])
+			time, _ := strconv.Atoi(cmd[1])
+			srv.waitForWriteAck(minReplicas, time)
 		}
-
 	}
 
 	return

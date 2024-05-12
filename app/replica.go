@@ -10,6 +10,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type replica struct {
@@ -114,7 +115,7 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 		}
 
 		fmt.Printf("[from master] Command = %q\n", cmd)
-		response, _ := srv.handleCommand(cmd)
+		response, _ := srv.handleCommand(cmd, cmdSize)
 
 		if strings.ToUpper(cmd[0]) == "REPLCONF" {
 			_, err := masterConn.Write([]byte(response))
@@ -133,6 +134,40 @@ func (srv *serverState) requestAcknowledgement() {
 		reader := bufio.NewReader(r.conn)
 		r.conn.Write([]byte(cmd))
 		resp, _, _ := decodeStringArray(reader)
-		r.offset, _ = strconv.Atoi(resp[2])
+		offset, _ := strconv.Atoi(resp[2])
+		r.offset += offset
 	}
+}
+
+func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
+	timer := time.After(time.Duration(t) * time.Millisecond)
+	cmd := encodeStringArray([]string{"replconf", "getack", "*"})
+	noOfAcks := 0
+
+	for _, r := range srv.replicas {
+		if r.offset > 0 {
+			bytesWritten, _ := r.conn.Write([]byte(cmd))
+			r.offset += bytesWritten
+
+			go func(conn net.Conn) {
+				reader := bufio.NewReader(conn)
+				_, _, _ = decodeStringArray(reader)
+				srv.ackReceived <- 1
+			}(r.conn)
+		} else {
+			noOfAcks++
+		}
+	}
+
+outer:
+	for noOfAcks < minReplicas {
+		select {
+		case <-srv.ackReceived:
+			noOfAcks++
+		case <-timer:
+			break outer
+		}
+	}
+
+	return encodeInteger(noOfAcks)
 }
