@@ -146,10 +146,9 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 
 	for _, r := range srv.replicas {
 		if r.offset > 0 {
-			bytesWritten, _ := r.conn.Write([]byte(cmd))
-			r.offset += bytesWritten
-
 			go func(conn net.Conn) {
+				bytesWritten, _ := r.conn.Write([]byte(cmd))
+				r.offset += bytesWritten
 				reader := bufio.NewReader(conn)
 				_, _, _ = decodeStringArray(reader)
 				srv.ackReceived <- true
