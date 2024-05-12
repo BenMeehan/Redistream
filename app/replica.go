@@ -132,6 +132,7 @@ func (srv *serverState) requestAcknowledgement() {
 	for _, r := range srv.replicas {
 		reader := bufio.NewReader(r.conn)
 		r.conn.Write([]byte(cmd))
-		reader.ReadString('\n')
+		resp, _, _ := decodeStringArray(reader)
+		r.offset, _ = strconv.Atoi(resp[2])
 	}
 }
