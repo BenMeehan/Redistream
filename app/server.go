@@ -191,6 +191,9 @@ func (srv *serverState) handleCommand(cmd []string, cmdSize int) (response strin
 	case "WAIT":
 		if len(cmd) == 3 {
 			minReplicas, _ := strconv.Atoi(cmd[0])
+			if minReplicas == 0 {
+				minReplicas = 1
+			}
 			time, _ := strconv.Atoi(cmd[1])
 			response = srv.waitForWriteAck(minReplicas, time)
 		}
