@@ -144,14 +144,19 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
 	noOfAcks := 0
 
+	fmt.Println(srv.replicas)
 	for _, r := range srv.replicas {
-		bytesWritten, _ := r.conn.Write([]byte(cmd))
-		r.offset += bytesWritten
-		go func(conn net.Conn) {
-			reader := bufio.NewReader(conn)
-			_, _, _ = decodeStringArray(reader)
-			srv.ackReceived <- true
-		}(r.conn)
+		if r.offset > 0 {
+			bytesWritten, _ := r.conn.Write([]byte(cmd))
+			r.offset += bytesWritten
+			go func(conn net.Conn) {
+				reader := bufio.NewReader(conn)
+				_, _, _ = decodeStringArray(reader)
+				srv.ackReceived <- true
+			}(r.conn)
+		} else {
+			noOfAcks++
+		}
 	}
 
 outer:
