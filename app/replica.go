@@ -160,6 +160,8 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 
 outer:
 	for noOfAcks < minReplicas {
+
+		fmt.Println("hyeyyyyyyy", noOfAcks)
 		select {
 		case <-srv.ackReceived:
 			noOfAcks++
@@ -167,8 +169,6 @@ outer:
 			break outer
 		}
 	}
-
-	fmt.Println("hyeyyyyyyy", noOfAcks)
 
 	return encodeInteger(noOfAcks)
 }
