@@ -129,7 +129,7 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 }
 
 func (srv *serverState) requestAcknowledgement() {
-	cmd := encodeStringArray([]string{"replconf", "getack", "*"})
+	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
 	for _, r := range srv.replicas {
 		reader := bufio.NewReader(r.conn)
 		r.conn.Write([]byte(cmd))
@@ -141,7 +141,7 @@ func (srv *serverState) requestAcknowledgement() {
 
 func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 	timer := time.After(time.Duration(t) * time.Millisecond)
-	cmd := encodeStringArray([]string{"replconf", "getack", "*"})
+	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
 	noOfAcks := 0
 
 	for _, r := range srv.replicas {
