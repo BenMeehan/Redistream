@@ -149,8 +149,8 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 			go func(conn net.Conn) {
 				bytesWritten, _ := conn.Write([]byte(cmd))
 				r.offset += bytesWritten
-				reader := bufio.NewReader(conn)
-				_, _, _ = decodeStringArray(reader)
+				// reader := bufio.NewReader(conn)
+				// _, _, _ = decodeStringArray(reader)
 				srv.ackReceived <- true
 			}(r.conn)
 		} else {
