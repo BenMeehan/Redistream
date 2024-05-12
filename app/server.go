@@ -27,7 +27,7 @@ type serverState struct {
 	config        serverConfig
 	replicas      []replica
 	replicaOffset int
-	ackReceived   chan int
+	ackReceived   chan bool
 }
 
 func main() {
