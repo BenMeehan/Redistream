@@ -148,14 +148,14 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 		if r.offset > 0 {
 			bytesWritten, err := r.conn.Write([]byte(cmd))
 			if err != nil {
-				fmt.Println("error from replica", r.conn.RemoteAddr().String(), " => ", err.Error())
+				fmt.Println("error from replica write", r.conn.RemoteAddr().String(), " => ", err.Error())
 			}
 			r.offset += bytesWritten
 			go func(conn net.Conn) {
 				reader := bufio.NewReader(conn)
 				_, _, err = decodeStringArray(reader)
 				if err != nil {
-					fmt.Println("error from replica", r.conn.RemoteAddr().String(), " => ", err.Error())
+					fmt.Println("error from replica read", r.conn.RemoteAddr().String(), " => ", err.Error())
 				}
 				srv.ackReceived <- true
 			}(r.conn)
