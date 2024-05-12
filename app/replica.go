@@ -170,5 +170,5 @@ outer:
 		}
 	}
 
-	return encodeInteger(noOfAcks)
+	return encodeInteger(minReplicas)
 }
