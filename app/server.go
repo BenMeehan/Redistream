@@ -187,7 +187,7 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 
 	case "WAIT":
 		if len(cmd) == 3 {
-			response = encodeInteger(0)
+			response = encodeInteger(len(srv.replicas))
 		}
 
 	}
