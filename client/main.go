@@ -20,7 +20,7 @@ func main() {
 	writer := bufio.NewWriter(conn)
 
 	// Send a PING command to the server
-	command := "*3\r\n$3\r\nSET\r\n$3\r\nfoo\r\n$1\r\n1\r\n"
+	command := "*3\r\n$4\r\nWAIT\r\n$1\r\n2\r\n$4\r\n1000\r\n"
 	_, err = writer.WriteString(command)
 	if err != nil {
 		fmt.Println("Error writing command:", err)

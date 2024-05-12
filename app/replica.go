@@ -160,7 +160,7 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 	}
 
 outer:
-	for {
+	for noOfAcks < minReplicas {
 		select {
 		case <-srv.ackReceived:
 			noOfAcks++
