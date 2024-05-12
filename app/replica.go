@@ -14,8 +14,9 @@ import (
 )
 
 type replica struct {
-	conn   net.Conn
-	offset int
+	conn      net.Conn
+	offset    int
+	ackOffset int // TODO: keep track of this also
 }
 
 func randReplid() string {
@@ -35,6 +36,7 @@ func (srv *serverState) replicaHandshake() {
 		os.Exit(1)
 	}
 
+	// TODO: check responses
 	reader := bufio.NewReader(masterConn)
 	masterConn.Write([]byte(encodeStringArray([]string{"PING"})))
 	reader.ReadString('\n')
@@ -45,6 +47,7 @@ func (srv *serverState) replicaHandshake() {
 	masterConn.Write([]byte(encodeStringArray([]string{"PSYNC", "?", "-1"})))
 	reader.ReadString('\n')
 
+	// receiving RDB (ignoring it for now)
 	response, _ := reader.ReadString('\n')
 	if response[0] != '$' {
 		fmt.Printf("Invalid response\n")
@@ -68,6 +71,7 @@ var emptyRDB = []byte("524544495330303131fa0972656469732d76657205372e322e30fa0a7
 
 func sendFullResynch(conn net.Conn) int {
 	buffer := make([]byte, hex.DecodedLen(len(emptyRDB)))
+	// TODO: check for errors
 	hex.Decode(buffer, emptyRDB)
 	conn.Write([]byte(fmt.Sprintf("$%d\r\n", len(buffer))))
 	conn.Write(buffer)
@@ -86,6 +90,7 @@ func (srv *serverState) propagateToReplicas(cmd []string) {
 		if err != nil {
 			fmt.Printf("Disconnected: %s\n", srv.replicas[i].conn.RemoteAddr().String())
 			if len(srv.replicas) > 0 {
+				// TODO: mutex?
 				last := len(srv.replicas) - 1
 				srv.replicas[i] = srv.replicas[last]
 				srv.replicas = srv.replicas[:last]
@@ -115,6 +120,7 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 		fmt.Printf("[from master] Command = %q\n", cmd)
 		response, _ := srv.handleCommand(cmd, cmdSize)
 
+		// REPLCONF ACK is the only response that a replica send back to master
 		if strings.ToUpper(cmd[0]) == "REPLCONF" {
 			_, err := masterConn.Write([]byte(response))
 			if err != nil {
@@ -126,32 +132,19 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 	}
 }
 
-func (srv *serverState) requestAcknowledgement() {
-	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
-	for _, r := range srv.replicas {
-		reader := bufio.NewReader(r.conn)
-		r.conn.Write([]byte(cmd))
-		resp, _, _ := decodeStringArray(reader)
-		offset, _ := strconv.Atoi(resp[2])
-		r.offset += offset
-	}
-}
+func (srv *serverState) waitForWriteAck(count, timeout int) string {
+	getAckCmd := []byte(encodeStringArray([]string{"REPLCONF", "GETACK", "*"}))
 
-func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
-	timer := time.After(time.Duration(t) * time.Second)
-	cmd := encodeStringArray([]string{"REPLCONF", "GETACK", "*"})
-	noOfAcks := 0
+	acks := 0
 
-	for _, r := range srv.replicas {
-		if r.offset > 0 {
-			bytesWritten, err := r.conn.Write([]byte(cmd))
-			if err != nil {
-				fmt.Println("error from replica write", r.conn.RemoteAddr().String(), " => ", err.Error())
-			}
-			r.offset += bytesWritten
+	for i := 0; i < len(srv.replicas); i++ {
+		if srv.replicas[i].offset > 0 {
+			bytesWritten, _ := srv.replicas[i].conn.Write(getAckCmd)
+			srv.replicas[i].offset += bytesWritten
 			go func(conn net.Conn) {
 				fmt.Println("waiting response from replica", conn.RemoteAddr().String())
 				buffer := make([]byte, 1024)
+				// TODO: Ignoring result, just "flushing" the response
 				_, err := conn.Read(buffer)
 				if err == nil {
 					fmt.Println("got response from replica", conn.RemoteAddr().String())
@@ -159,22 +152,25 @@ func (srv *serverState) waitForWriteAck(minReplicas int, t int) string {
 					fmt.Println("error from replica", conn.RemoteAddr().String(), " => ", err.Error())
 				}
 				srv.ackReceived <- true
-			}(r.conn)
+			}(srv.replicas[i].conn)
 		} else {
-			noOfAcks++
+			acks++
 		}
 	}
 
+	timer := time.After(time.Duration(timeout) * time.Millisecond)
+
 outer:
-	for noOfAcks < minReplicas {
+	for acks < count {
 		select {
 		case <-srv.ackReceived:
-			noOfAcks++
+			acks++
+			fmt.Println("acks =", acks)
 		case <-timer:
-			fmt.Println("timed out")
+			fmt.Println("timeout! acks =", acks)
 			break outer
 		}
 	}
 
-	return encodeInteger(noOfAcks)
+	return encodeInteger(acks)
 }
