@@ -57,7 +57,7 @@ func main() {
 		}
 
 		if config.masterHost == "localhost" {
-			config.masterHost = "127.0.0.1"
+			config.masterHost = "0.0.0.0"
 		}
 	}
 
