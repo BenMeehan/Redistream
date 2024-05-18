@@ -16,7 +16,7 @@ import (
 type replica struct {
 	conn      net.Conn
 	offset    int
-	ackOffset int // TODO: keep track of this also
+	ackOffset int
 }
 
 func randReplid() string {
@@ -36,7 +36,6 @@ func (srv *serverState) replicaHandshake() {
 		os.Exit(1)
 	}
 
-	// TODO: check responses
 	reader := bufio.NewReader(masterConn)
 	masterConn.Write([]byte(encodeStringArray([]string{"PING"})))
 	reader.ReadString('\n')
@@ -47,7 +46,6 @@ func (srv *serverState) replicaHandshake() {
 	masterConn.Write([]byte(encodeStringArray([]string{"PSYNC", "?", "-1"})))
 	reader.ReadString('\n')
 
-	// receiving RDB (ignoring it for now)
 	response, _ := reader.ReadString('\n')
 	if response[0] != '$' {
 		fmt.Printf("Invalid response\n")
@@ -120,7 +118,6 @@ func (srv *serverState) handlePropagation(reader *bufio.Reader, masterConn net.C
 		fmt.Printf("[from master] Command = %q\n", cmd)
 		response, _ := srv.handleCommand(cmd)
 
-		// REPLCONF ACK is the only response that a replica send back to master
 		if strings.ToUpper(cmd[0]) == "REPLCONF" {
 			_, err := masterConn.Write([]byte(response))
 			if err != nil {
@@ -144,7 +141,6 @@ func (srv *serverState) waitForWriteAck(count, timeout int) string {
 			go func(conn net.Conn) {
 				fmt.Println("waiting response from replica", conn.RemoteAddr().String())
 				buffer := make([]byte, 1024)
-				// TODO: Ignoring result, just "flushing" the response
 				_, err := conn.Read(buffer)
 				if err == nil {
 					fmt.Println("got response from replica", conn.RemoteAddr().String())

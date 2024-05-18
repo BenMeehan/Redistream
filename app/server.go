@@ -55,6 +55,10 @@ func main() {
 		default:
 			flag.Usage()
 		}
+
+		if config.masterHost == "localhost" {
+			config.masterHost = "127.0.0.1"
+		}
 	}
 
 	srv := newServer(config)
@@ -96,7 +100,6 @@ func (srv *serverState) start() {
 func (srv *serverState) serveClient(id int, conn net.Conn) {
 	fmt.Printf("[#%d] Client connected: %v\n", id, conn.RemoteAddr().String())
 
-	//scanner := bufio.NewScanner(conn)
 	reader := bufio.NewReader(conn)
 
 	for {
@@ -208,7 +211,7 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 			if strings.ToUpper(cmd[2]) == "DIR" {
 				response = encodeStringArray([]string{"dir", srv.config.dbDir})
 			} else if strings.ToUpper(cmd[2]) == "DBFILENAME" {
-				response = encodeStringArray([]string{"dir", srv.config.dbFileName})
+				response = encodeStringArray([]string{"dbfilename", srv.config.dbFileName})
 			}
 		default:
 			response = "+OK\r\n"
