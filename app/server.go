@@ -63,6 +63,15 @@ func main() {
 
 	srv := newServer(config)
 
+	rdbFilePath := fmt.Sprintf("%s/%s", srv.config.dbDir, srv.config.dbFileName)
+	if _, err := os.Stat(rdbFilePath); err == nil {
+		readKeyFromRDBFile(rdbFilePath, srv.store, srv.ttl)
+		if err != nil {
+			fmt.Println("Error reading key from RDB file:", err)
+			os.Exit(1)
+		}
+	}
+
 	srv.start()
 }
 
