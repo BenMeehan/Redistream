@@ -30,7 +30,7 @@ func randReplid() string {
 }
 
 func (srv *serverState) replicaHandshake() {
-	masterConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", srv.config.masterHost, srv.config.masterPort))
+	masterConn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", "0.0.0.0", srv.config.masterPort))
 	if err != nil {
 		fmt.Printf("Failed to connect to master %v\n", err)
 		os.Exit(1)

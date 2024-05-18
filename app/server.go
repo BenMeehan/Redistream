@@ -55,10 +55,6 @@ func main() {
 		default:
 			flag.Usage()
 		}
-
-		if config.masterHost == "localhost" {
-			config.masterHost = "0.0.0.0"
-		}
 	}
 
 	srv := newServer(config)
