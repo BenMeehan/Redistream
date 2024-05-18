@@ -55,6 +55,10 @@ func main() {
 		default:
 			flag.Usage()
 		}
+
+		if config.masterHost == "localhost" {
+			config.masterHost = "0.0.0.0"
+		}
 	}
 
 	srv := newServer(config)
@@ -211,6 +215,14 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 			}
 		default:
 			response = "+OK\r\n"
+		}
+	case "KEYS":
+		if len(cmd) == 2 && cmd[1] == "*" {
+			keys := make([]string, 0, len(srv.store))
+			for k := range srv.store {
+				keys = append(keys, k)
+			}
+			response = encodeStringArray(keys)
 		}
 	}
 
