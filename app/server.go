@@ -63,7 +63,7 @@ func main() {
 	if _, err := os.Stat(rdbFilePath); err == nil {
 		err = readKeyFromRDBFile(rdbFilePath, srv.store, srv.ttl)
 		if err != nil {
-			fmt.Println("Error reading key from RDB file:", err)
+			fmt.Println("Error reading keys from RDB file:", err)
 			os.Exit(1)
 		}
 	}
