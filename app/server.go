@@ -19,6 +19,8 @@ type serverConfig struct {
 	replOffset int
 	masterHost string
 	masterPort int
+	dbDir      string
+	dbFileName string
 }
 
 type serverState struct {
@@ -36,6 +38,8 @@ func main() {
 
 	flag.IntVar(&config.port, "port", 6379, "listen on specified port")
 	flag.StringVar(&config.masterHost, "replicaof", "", "start server in replica mode of given host and port")
+	flag.StringVar(&config.dbDir, "dir", "/tmp", "directory to store the RDB file")
+	flag.StringVar(&config.dbFileName, "dbfilename", "redis.rdb", "name of the RDB file")
 	flag.Parse()
 
 	if len(config.masterHost) == 0 {
@@ -197,6 +201,18 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 		count, _ := strconv.Atoi(cmd[1])
 		timeout, _ := strconv.Atoi(cmd[2])
 		response = srv.waitForWriteAck(count, timeout)
+
+	case "CONFIG":
+		switch strings.ToUpper(cmd[1]) {
+		case "GET":
+			if strings.ToUpper(cmd[2]) == "DIR" {
+				response = encodeStringArray([]string{"dir", srv.config.dbDir})
+			} else if strings.ToUpper(cmd[2]) == "DBFILENAME" {
+				response = encodeStringArray([]string{"dir", srv.config.dbFileName})
+			}
+		default:
+			response = "+OK\r\n"
+		}
 	}
 
 	if isWrite {
