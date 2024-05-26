@@ -78,6 +78,7 @@ func newServer(config serverConfig) *serverState {
 	srv.ttl = make(map[string]time.Time)
 	srv.ackReceived = make(chan bool)
 	srv.config = config
+	srv.streams = make(map[string]*stream)
 	return &srv
 }
 
