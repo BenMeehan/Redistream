@@ -250,6 +250,8 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 	case "XRANGE":
 		streamKey, start, end := cmd[1], cmd[2], cmd[3]
 		response = srv.handleStreamRange(streamKey, start, end)
+	case "XREAD":
+		response = srv.handleStreamRead(cmd)
 	}
 
 	if isWrite {

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"math"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -184,5 +185,120 @@ func (srv *serverState) handleStreamRange(streamKey, start, end string) (respons
 		}
 	}
 
+	return
+}
+
+func (srv *serverState) handleStreamRead(cmd []string) (response string) {
+	readKeyIndex := 2
+
+	isBlocking := false
+	blockTimeout := 0
+	if cmd[1] == "block" {
+		isBlocking = true
+		blockTimeout, _ = strconv.Atoi(cmd[2])
+		readKeyIndex += 2
+	}
+	_ = blockTimeout
+
+	readCount := (len(cmd) - readKeyIndex) / 2
+	readStartIndex := readKeyIndex + readCount
+
+	readParams := []struct{ key, start string }{}
+	for i := 0; i < readCount; i++ {
+		streamKey := cmd[i+readKeyIndex]
+		start := cmd[i+readStartIndex]
+
+		_, exists := srv.streams[streamKey]
+		if exists {
+			readParams = append(readParams, struct{ key, start string }{streamKey, start})
+		}
+	}
+
+	response = fmt.Sprintf("*%d\r\n", len(readParams))
+
+	for _, readParam := range readParams {
+
+		streamKey, start := readParam.key, readParam.start
+
+		// stream key + entry (below)
+		response += fmt.Sprintf("*%d\r\n", 2)
+		response += encodeBulkString(streamKey)
+
+		stream := srv.streams[streamKey]
+
+		var startMs, startSeq uint64
+		var startHasSeq bool
+
+		if start == "$" {
+			startMs, startSeq = stream.last[0], stream.last[1]
+		} else {
+			startMs, startSeq, startHasSeq, _ = stream.splitID(start)
+			if !startHasSeq {
+				startSeq = 0
+			}
+		}
+
+		var entry *streamEntry
+		var startIndex int
+
+		for entry == nil {
+			startIndex = searchStreamEntries(stream.entries, startMs, startSeq, startIndex, len(stream.entries)-1)
+
+			if startIndex < len(stream.entries) {
+				entry = stream.entries[startIndex]
+			}
+
+			// if found exact match, need to get the next one (xread bound is exclusive)
+			if entry != nil && entry.id[0] == startMs && entry.id[1] == startSeq {
+				if startIndex+1 < len(stream.entries) {
+					entry = stream.entries[startIndex+1]
+				} else {
+					entry = nil
+				}
+			}
+
+			if entry == nil {
+				if isBlocking {
+					waitForAdd := make(chan bool)
+					stream.blocked = append(stream.blocked, &waitForAdd)
+					timedOut := false
+					if blockTimeout > 0 {
+						fmt.Printf("Waiting for a write on stream %s (timeout = %d ms)...\n", streamKey, blockTimeout)
+						timer := time.After(time.Duration(blockTimeout) * time.Millisecond)
+						select {
+						case <-waitForAdd:
+							timedOut = false
+						case <-timer:
+							timedOut = true
+						}
+					} else {
+						fmt.Printf("Waiting for a write on stream %s (no timeout!)...\n", streamKey)
+						<-waitForAdd
+					}
+					stream.blocked = slices.DeleteFunc(stream.blocked, func(ch *chan bool) bool { return ch == &waitForAdd })
+					if timedOut {
+						response = "$-1\r\n"
+						return
+					}
+				} else {
+					break
+				}
+			}
+		}
+
+		if entry == nil {
+			response = "*0\r\n"
+			return
+		}
+
+		// single entry
+		response += "*1\r\n"
+		id := fmt.Sprintf("%d-%d", entry.id[0], entry.id[1])
+		response += fmt.Sprintf("*2\r\n$%d\r\n%s\r\n", len(id), id)
+		response += fmt.Sprintf("*%d\r\n", len(entry.store))
+		for _, kv := range entry.store {
+			response += encodeBulkString(kv)
+		}
+	}
 	return
 }
