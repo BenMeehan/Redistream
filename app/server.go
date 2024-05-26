@@ -229,6 +229,14 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 			}
 			response = encodeStringArray(keys)
 		}
+	case "TYPE":
+		key := cmd[1]
+		value, ok := srv.store[key]
+		if ok {
+			response = encodeBulkString(fmt.Sprintf("%T", value))
+		} else {
+			response = encodeBulkString("none")
+		}
 	}
 
 	if isWrite {
