@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -80,6 +81,19 @@ func (s *stream) getNextID(id string) (millisecondsTime, sequenceNumber uint64, 
 	return
 }
 
+func (s *stream) splitID(id string) (millisecondsTime, sequenceNumber uint64, hasSequence bool, err error) {
+	parts := strings.Split(id, "-")
+	millisecondsTime, err = strconv.ParseUint(parts[0], 10, 64)
+	if err != nil {
+		return
+	}
+	if len(parts) > 1 {
+		sequenceNumber, err = strconv.ParseUint(parts[1], 10, 64)
+		hasSequence = true
+	}
+	return
+}
+
 func (srv *serverState) handleStreamAdd(streamKey, id string, kvpairs []string) (response string) {
 	stream, exists := srv.streams[streamKey]
 	if !exists {
@@ -100,6 +114,74 @@ func (srv *serverState) handleStreamAdd(streamKey, id string, kvpairs []string) 
 
 	for _, ch := range stream.blocked {
 		*ch <- true
+	}
+
+	return
+}
+
+func searchStreamEntries(entries []*streamEntry, targetMs, targetSeq uint64, lo, hi int) int {
+	for lo <= hi {
+		mid := (lo + hi) / 2
+		entry := entries[mid]
+		if targetMs == entry.id[0] && targetSeq == entry.id[1] {
+			lo = mid
+			break
+		} else if targetMs == entry.id[0] && entry.id[1] > targetSeq {
+			hi = mid - 1
+		} else if targetMs == entry.id[0] && entry.id[1] < targetSeq {
+			lo = mid + 1
+		} else if targetMs < entry.id[0] {
+			hi = mid - 1
+		} else {
+			lo = mid + 1
+		}
+	}
+	return lo
+}
+
+func (srv *serverState) handleStreamRange(streamKey, start, end string) (response string) {
+
+	stream, exists := srv.streams[streamKey]
+	if !exists || len(stream.entries) == 0 {
+		response = "*0\r\n"
+		return
+	}
+
+	var startIndex, endIndex int
+
+	if start == "-" {
+		startIndex = 0
+	} else {
+		startMs, startSeq, startHasSeq, _ := stream.splitID(start)
+		if !startHasSeq {
+			startSeq = 0
+		}
+		startIndex = searchStreamEntries(stream.entries, startMs, startSeq, 0, len(stream.entries)-1)
+	}
+
+	if end == "+" {
+		endIndex = len(stream.entries) - 1
+	} else {
+		endMs, endSeq, endHasSeq, _ := stream.splitID(end)
+		if !endHasSeq {
+			endSeq = math.MaxUint64
+		}
+		endIndex = searchStreamEntries(stream.entries, endMs, endSeq, startIndex, len(stream.entries)-1)
+		if endIndex >= len(stream.entries) {
+			endIndex = len(stream.entries) - 1
+		}
+	}
+
+	entriesCount := endIndex - startIndex + 1
+	response = fmt.Sprintf("*%d\r\n", entriesCount)
+	for index := startIndex; index <= endIndex; index++ {
+		entry := stream.entries[index]
+		id := fmt.Sprintf("%d-%d", entry.id[0], entry.id[1])
+		response += fmt.Sprintf("*2\r\n$%d\r\n%s\r\n", len(id), id)
+		response += fmt.Sprintf("*%d\r\n", len(entry.store))
+		for _, kv := range entry.store {
+			response += encodeBulkString(kv)
+		}
 	}
 
 	return
