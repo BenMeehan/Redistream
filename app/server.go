@@ -24,6 +24,7 @@ type serverConfig struct {
 }
 
 type serverState struct {
+	streams       map[string]*stream
 	store         map[string]string
 	ttl           map[string]time.Time
 	config        serverConfig
@@ -231,12 +232,20 @@ func (srv *serverState) handleCommand(cmd []string) (response string, resynch bo
 		}
 	case "TYPE":
 		key := cmd[1]
-		value, ok := srv.store[key]
-		if ok {
-			response = encodeBulkString(fmt.Sprintf("%T", value))
+		_, exists := srv.streams[key]
+		if exists {
+			response = encodeSimpleString("stream")
 		} else {
-			response = encodeBulkString("none")
+			_, exists := srv.store[key]
+			if exists {
+				response = encodeSimpleString("string")
+			} else {
+				response = encodeSimpleString("none")
+			}
 		}
+	case "XADD":
+		streamKey, id := cmd[1], cmd[2]
+		response = srv.handleStreamAdd(streamKey, id, cmd[3:])
 	}
 
 	if isWrite {

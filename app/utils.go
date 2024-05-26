@@ -7,6 +7,14 @@ import (
 	"strings"
 )
 
+func encodeError(e error) string {
+	return fmt.Sprintf("-ERR %s\r\n", e.Error())
+}
+
+func encodeSimpleString(s string) string {
+	return fmt.Sprintf("+%s\r\n", s)
+}
+
 func encodeBulkString(s string) string {
 	if len(s) == 0 {
 		return "$-1\r\n"
